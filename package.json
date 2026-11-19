@@ -1,0 +1,13 @@
+{
+  "name": "color-clash",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A two-player card game that blind and sighted players can play together. Made by smoovgunner with Claude.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.164.0"
+  }
+}
