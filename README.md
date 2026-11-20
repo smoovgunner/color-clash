@@ -15,3 +15,8 @@ Made by smoovgunner with Claude.
     npm install
     npx wrangler dev        # http://localhost:8787
     npx wrangler deploy     # publish
+
+## Games
+- **Color Clash** (`/`) — match colors and numbers.
+- **Letter Flip** (`/letter-flip/`) — change one letter at a time to make a new four-letter word.
+  Take-turns or speed rounds. Words come from the public-domain ENABLE word list.

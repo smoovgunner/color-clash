@@ -1,8 +1,9 @@
-// Color Clash server. The page itself is served from /public; this handles the game rooms.
-//   GET /api/new          -> { code }  a fresh room code
-//   GET /api/room/<CODE>  -> WebSocket into that room
+// EvenPlay games server. The pages are served from /public; this handles the game rooms.
+//   Color Clash:  GET /api/new  -> { code },  GET /api/room/<CODE>     -> WebSocket
+//   Letter Flip:  GET /api/lf/new -> { code }, GET /api/lf/room/<CODE> -> WebSocket
 import { DurableObject } from "cloudflare:workers";
-import { newTable, applyAction, viewFor } from "../public/game.js";
+import * as colorClash from "../public/game.js";
+import * as letterFlip from "../public/letter-flip/rules.js";
 
 const WORDS = [
   "TIGER", "MANGO", "COMET", "LUCKY", "OCEAN", "PEACH", "ROCKET", "SUNNY", "MAPLE", "JAZZY",
@@ -22,20 +23,21 @@ const json = (body, status = 200) =>
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (url.pathname === "/api/new") return json({ code: makeCode() });
-    const m = url.pathname.match(/^\/api\/room\/([A-Z0-9]{3,16})$/);
+    if (url.pathname === "/api/new" || url.pathname === "/api/lf/new") return json({ code: makeCode() });
+    const m = url.pathname.match(/^\/api\/(lf\/)?room\/([A-Z0-9]{3,16})$/);
     if (m) {
       if (req.headers.get("Upgrade") !== "websocket") return json({ error: "Expected a WebSocket" }, 426);
-      const stub = env.ROOMS.get(env.ROOMS.idFromName(m[1]));
-      return stub.fetch(req);
+      const ns = m[1] ? env.LF_ROOMS : env.ROOMS;
+      return ns.get(ns.idFromName(m[2])).fetch(req);
     }
     return env.ASSETS.fetch(req);
   },
 };
 
-export class GameRoom extends DurableObject {
-  constructor(ctx, env) {
+class Room extends DurableObject {
+  constructor(ctx, env, rules) {
     super(ctx, env);
+    this.rules = rules;
     this.st = null;
     ctx.blockConcurrencyWhile(async () => {
       this.st = (await ctx.storage.get("st")) || null;
@@ -74,7 +76,7 @@ export class GameRoom extends DurableObject {
     for (const ws of this.sockets()) {
       const a = ws.deserializeAttachment() || { seat: -1 };
       try {
-        ws.send(JSON.stringify({ type: "state", code: a.code, view: viewFor(this.st, a.seat, connected), ...(extra || {}) }));
+        ws.send(JSON.stringify({ type: "state", code: a.code, view: this.rules.viewFor(this.st, a.seat, connected), ...(extra || {}) }));
       } catch (e) { /* socket going away */ }
     }
   }
@@ -89,7 +91,7 @@ export class GameRoom extends DurableObject {
     if (m.type === "hello") {
       const token = String(m.token || "").slice(0, 64);
       const name = String(m.name || "").trim().slice(0, 24) || "Player";
-      if (!this.st) this.st = { ...newTable() };
+      if (!this.st) this.st = { ...this.rules.newTable() };
       let seat = this.st.seats.findIndex((p) => p && p.token === token);
       if (seat < 0 && token) {
         seat = this.st.seats.findIndex((p) => !p);
@@ -104,7 +106,7 @@ export class GameRoom extends DurableObject {
 
     if (m.type === "act") {
       if (!this.st) return;
-      const err = applyAction(this.st, att.seat, m.action);
+      const err = this.rules.applyAction(this.st, att.seat, m.action);
       if (err) { ws.send(JSON.stringify({ type: "error", message: err })); return; }
       await this.save();
       this.broadcast();
@@ -139,4 +141,11 @@ export class GameRoom extends DurableObject {
     await this.ctx.storage.deleteAll();
     this.st = null;
   }
+}
+
+export class GameRoom extends Room {
+  constructor(ctx, env) { super(ctx, env, colorClash); }
+}
+export class LetterRoom extends Room {
+  constructor(ctx, env) { super(ctx, env, letterFlip); }
 }
