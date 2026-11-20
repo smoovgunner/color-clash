@@ -17,15 +17,15 @@
   --ink: #f3efe6;
   --ink-soft: #b9c9c4;
   --gold: #f0b43a;
-  --red: #d8433c;
-  --yellow: #e9b923;
-  --green: #2a9d5c;
-  --blue: #2f6bd1;
+  --red: #ff3b30;
+  --yellow: #ffd400;
+  --green: #18cf5c;
+  --blue: #1e7bff;
   --black: #1b1d22;
   --font-display: "Bungee", "Arial Black", Impact, sans-serif;
   --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
-  --card-w: 64px;
-  --card-h: 96px;
+  --card-w: 84px;
+  --card-h: 126px;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -100,7 +100,10 @@ button:focus-visible, .card:focus-visible { outline: 4px solid #fff; outline-off
 }
 button.card { cursor: pointer; transition: transform 0.12s ease; }
 button.card:hover:not([aria-disabled="true"]) { transform: translateY(-6px); }
-button.card[aria-disabled="true"] { filter: saturate(0.45) brightness(0.7); cursor: default; }
+button.card[aria-disabled="true"] { cursor: default; }
+/* On your turn: cards you can play lift up with a gold edge; the rest fade back. Off your turn every card stays full color. */
+button.card.can { transform: translateY(-8px); box-shadow: 0 0 0 4px var(--gold), 0 8px 18px rgba(0,0,0,0.35); }
+button.card.dim { opacity: 0.5; }
 .card.c-r { background: var(--red); }
 .card.c-y { background: var(--yellow); color: #2a1f00; text-shadow: none; }
 .card.c-g { background: var(--green); }
@@ -108,7 +111,7 @@ button.card[aria-disabled="true"] { filter: saturate(0.45) brightness(0.7); curs
 .card.c-w { background: conic-gradient(var(--red) 0 25%, var(--yellow) 0 50%, var(--green) 0 75%, var(--blue) 0); }
 .card .band {
   position: absolute; inset: 22% -20%;
-  background: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.13);
   transform: rotate(-24deg);
 }
 .card.c-w .band { background: var(--black); inset: 30% -20%; }
@@ -117,7 +120,7 @@ button.card[aria-disabled="true"] { filter: saturate(0.45) brightness(0.7); curs
 .card .corner { position: absolute; font-size: calc(var(--card-w) * 0.2); line-height: 1; }
 .card .corner.tl { top: 6px; left: 6px; }
 .card .corner.br { bottom: 6px; right: 6px; transform: rotate(180deg); }
-.card.big { --card-w: 108px; --card-h: 160px; border-width: 4px; }
+.card.big { --card-w: 132px; --card-h: 198px; border-width: 4px; }
 .card.back {
   background: repeating-linear-gradient(45deg, #23262d 0 8px, #2d3139 8px 16px);
   border-color: #f7f3ea;
@@ -131,7 +134,7 @@ button.card[aria-disabled="true"] { filter: saturate(0.45) brightness(0.7); curs
 .pile-label { font-size: 14px; color: var(--ink-soft); text-align: center; }
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-right: 6px; border: 2px solid #fff; }
 .opp-cards { display: flex; flex-wrap: wrap; gap: 0; padding-left: 20px; }
-.opp-cards .card { --card-w: 44px; --card-h: 66px; margin-left: -20px; border-width: 2px; }
+.opp-cards .card { --card-w: 52px; --card-h: 78px; margin-left: -22px; border-width: 2px; }
 .hand { display: flex; flex-wrap: wrap; gap: 10px; }
 .seats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .seat { background: var(--rail); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
@@ -155,8 +158,9 @@ details ul { margin: 8px 0 0; padding-left: 22px; display: grid; gap: 4px; }
 .choice.r { background: var(--red); } .choice.y { background: var(--yellow); color: #2a1f00; } .choice.g { background: var(--green); } .choice.b { background: var(--blue); }
 
 @media (max-width: 520px) {
-  :root { --card-w: 56px; --card-h: 84px; }
-  .card.big { --card-w: 92px; --card-h: 136px; }
+  :root { --card-w: 72px; --card-h: 108px; }
+  .card.big { --card-w: 112px; --card-h: 168px; }
+  .hand { gap: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -652,6 +656,8 @@ function renderHand() {
     const id = b.dataset.id, ok = playableNow(id);
     b.setAttribute("aria-label", cardName(id) + (myTurn ? (ok ? ", playable" : ", can't play") : "") + (view.drawn === id ? ", just drawn" : ""));
     b.setAttribute("aria-disabled", ok ? "false" : "true");
+    b.classList.toggle("can", myTurn && ok);
+    b.classList.toggle("dim", myTurn && !ok);
   }
   if (!sameSet && focusedIdx >= 0) {
     const btns = hand.querySelectorAll("button.card");
