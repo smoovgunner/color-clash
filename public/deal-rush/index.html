@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deal Rush</title>
+<meta name="description" content="A property-trading card game for two, made so blind and sighted players can play together.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bungee&display=swap">
+<style>
+/* Layout: one card table — opponent across the top, play area in the middle, your hand along the bottom. */
+:root {
+  color-scheme: dark;
+  --felt: #0f3b3a;
+  --felt-deep: #0a2a29;
+  --rail: #072120;
+  --ink: #f3efe6;
+  --ink-soft: #b9c9c4;
+  --gold: #f0b43a;
+  --red: #ff3b30;
+  --yellow: #ffd400;
+  --green: #18cf5c;
+  --blue: #1e7bff;
+  --black: #1b1d22;
+  --font-display: "Bungee", "Arial Black", Impact, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --card-w: 84px;
+  --card-h: 126px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at 50% 40%, var(--felt) 0%, var(--felt-deep) 75%) fixed, var(--felt-deep);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.45;
+}
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding-block: 18px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 18px;
+}
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(26px, 6vw, 38px); margin: 0; letter-spacing: 0.02em; }
+h1 .c1 { color: var(--red); } h1 .c2 { color: var(--yellow); } h1 .c3 { color: var(--green); } h1 .c4 { color: var(--blue); }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); margin: 0 0 8px; font-weight: 700; }
+.score { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.banner {
+  background: var(--rail);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 19px;
+  font-weight: 700;
+  border: 2px solid transparent;
+}
+.banner.mine { border-color: var(--gold); color: var(--gold); }
+.panel { background: rgba(0,0,0,0.18); border-radius: 18px; padding: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.muted { color: var(--ink-soft); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+button.btn {
+  font: 700 17px/1 var(--font-body);
+  padding: 13px 18px;
+  border-radius: 12px;
+  border: 2px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  min-height: 48px;
+}
+button.btn.small { min-height: 40px; padding: 8px 14px; font-size: 15px; }
+button.btn.primary { background: var(--gold); border-color: var(--gold); color: #1d1503; }
+button.btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+button:focus-visible, .card:focus-visible { outline: 4px solid #fff; outline-offset: 3px; }
+
+/* Cards */
+.card {
+  position: relative;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 10px;
+  border: 3px solid #f7f3ea;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.35), 0 6px 14px rgba(0,0,0,0.25);
+  color: #fff;
+  font-family: var(--font-display);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  flex: none;
+  overflow: hidden;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.3);
+}
+button.card { cursor: pointer; transition: transform 0.12s ease; }
+button.card:hover:not([aria-disabled="true"]) { transform: translateY(-6px); }
+button.card[aria-disabled="true"] { cursor: default; }
+/* On your turn: cards you can play lift up with a gold edge; the rest fade back. Off your turn every card stays full color. */
+button.card.can { transform: translateY(-8px); box-shadow: 0 0 0 4px var(--gold), 0 8px 18px rgba(0,0,0,0.35); }
+button.card.dim { opacity: 0.5; }
+.card.c-r { background: var(--red); }
+.card.c-y { background: var(--yellow); color: #2a1f00; text-shadow: none; }
+.card.c-g { background: var(--green); }
+.card.c-b { background: var(--blue); }
+.card.c-w { background: conic-gradient(var(--red) 0 25%, var(--yellow) 0 50%, var(--green) 0 75%, var(--blue) 0); }
+.card .band {
+  position: absolute; inset: 22% -20%;
+  background: rgba(255,255,255,0.13);
+  transform: rotate(-24deg);
+}
+.card.c-w .band { background: var(--black); inset: 30% -20%; }
+.card .mid { position: relative; font-size: calc(var(--card-w) * 0.5); line-height: 1; }
+.card .mid.small { font-size: calc(var(--card-w) * 0.3); }
+.card .corner { position: absolute; font-size: calc(var(--card-w) * 0.2); line-height: 1; }
+.card .corner.tl { top: 6px; left: 6px; }
+.card .corner.br { bottom: 6px; right: 6px; transform: rotate(180deg); }
+.card.big { --card-w: 132px; --card-h: 198px; border-width: 4px; }
+.card.back {
+  background: repeating-linear-gradient(45deg, #23262d 0 8px, #2d3139 8px 16px);
+  border-color: #f7f3ea;
+}
+.card.back .mid { font-size: calc(var(--card-w) * 0.24); color: var(--gold); }
+.card.selected { transform: translateY(-10px); }
+
+/* Table */
+.table-mid { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; justify-content: center; padding: 10px 0; }
+.pile { display: grid; justify-items: center; gap: 8px; }
+.pile-label { font-size: 14px; color: var(--ink-soft); text-align: center; }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-right: 6px; border: 2px solid #fff; }
+.opp-cards { display: flex; flex-wrap: wrap; gap: 0; padding-left: 20px; }
+.opp-cards .card { --card-w: 52px; --card-h: 78px; margin-left: -22px; border-width: 2px; }
+.hand { display: flex; flex-wrap: wrap; gap: 10px; }
+.seats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.seat { background: var(--rail); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+.seat strong { font-size: 19px; }
+ol.log { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+ol.log li { color: var(--ink-soft); }
+ol.log li:first-child { color: var(--ink); }
+details summary { cursor: pointer; font-weight: 700; }
+details ul { margin: 8px 0 0; padding-left: 22px; display: grid; gap: 4px; }
+
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: grid; place-items: center; z-index: 20;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.dialog { background: var(--rail); border-radius: 18px; padding: 20px; width: min(420px, 100%); display: grid; gap: 14px; border: 2px solid var(--gold); }
+.dialog h2 { font-size: 20px; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.choice { font: 700 18px var(--font-body); min-height: 64px; border-radius: 12px; border: 3px solid #fff; color: #fff; cursor: pointer; }
+.choice.r { background: var(--red); } .choice.y { background: var(--yellow); color: #2a1f00; } .choice.g { background: var(--green); } .choice.b { background: var(--blue); }
+
+@media (max-width: 520px) {
+  :root { --card-w: 72px; --card-h: 108px; }
+  .card.big { --card-w: 112px; --card-h: 168px; }
+  .hand { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<style>
+/* Deal Rush: the EvenPlay table; cards carry a colored property band, a money value, or an action name. */
+:root {
+  --paper: #fffdf6;
+  --c-brown: #8b5a2b; --c-lightblue: #8fd0f2; --c-pink: #e35aae; --c-orange: #f08a24; --c-red: #e03a3a;
+  --c-yellow: #f4cd25; --c-green: #23a058; --c-darkblue: #1f47b8; --c-station: #2b2b2e; --c-utility: #a9bcae;
+  --money: #d9efcf; --action: #5b3fb5;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+h1 .c9 { color: var(--gold); } h1 .c10 { color: var(--paper); }
+.home { display: grid; gap: 16px; }
+.field { display: grid; gap: 6px; }
+.field label { font-weight: 700; }
+.field input { font: 700 20px var(--font-body); padding: 12px 14px; border-radius: 12px; border: 2px solid var(--ink-soft); background: var(--rail); color: var(--ink); min-height: 52px; width: 100%; }
+.field input:focus-visible { outline: 4px solid #fff; outline-offset: 2px; }
+.code-big { font-family: var(--font-display); font-size: clamp(30px, 9vw, 44px); letter-spacing: 0.06em; color: var(--gold); margin: 4px 0 6px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: #6b7d78; }
+.dot.on { background: #4fd18b; }
+footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
+.games { display: flex; gap: 14px; flex-wrap: wrap; font-size: 15px; }
+.games a { color: var(--gold); }
+
+/* cards */
+.dc {
+  --w: 88px;
+  width: var(--w); height: calc(var(--w) * 1.38); border-radius: 10px; flex: none; position: relative; overflow: hidden;
+  background: var(--paper); color: #1b1b1f; border: 2px solid #e7dfcd; padding: 0; text-align: left;
+  font: 700 12px/1.15 var(--font-body);
+  box-shadow: 0 3px 0 rgba(0,0,0,0.3), 0 6px 14px rgba(0,0,0,0.25);
+  display: grid; grid-template-rows: auto 1fr auto;
+}
+button.dc { cursor: pointer; transition: transform 0.12s ease; }
+button.dc:hover { transform: translateY(-4px); }
+button.dc.selected { transform: translateY(-12px); box-shadow: 0 0 0 4px var(--gold), 0 10px 18px rgba(0,0,0,0.35); }
+.dc .band { height: 26px; display: flex; }
+.dc .band span { flex: 1; }
+.dc .title { padding: 5px 6px 0; font-size: 12px; }
+.dc .big { font-family: var(--font-display); font-size: calc(var(--w) * 0.3); padding: 0 6px; align-self: center; }
+.dc .val { position: absolute; top: 4px; right: 5px; background: rgba(255,255,255,0.92); color: #1b1b1f; border-radius: 999px; padding: 1px 6px; font-size: 11px; }
+.dc .foot { padding: 0 6px 6px; font-size: 10px; color: #55555e; font-weight: 400; }
+.dc.money { background: var(--money); }
+.dc.money .big { color: #1f5b2a; }
+.dc.action .band { background: var(--action); }
+.dc.rent .title, .dc.action .title { font-size: 13px; }
+.dc.mini { --w: 52px; border-width: 1px; }
+.dc.mini .title, .dc.mini .foot { display: none; }
+.dc.mini .band { height: 100%; }
+.dc.mini .val { font-size: 9px; padding: 0 4px; }
+.dc.back { background: repeating-linear-gradient(45deg, #23262d 0 8px, #2d3139 8px 16px); border-color: #f7f3ea; }
+.dc.back .band { display: none; }
+.dc.back::after { content: "DR"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--gold); font-family: var(--font-display); }
+.hand { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 10px; }
+.sets { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.set { background: rgba(0,0,0,0.18); border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; border-left: 8px solid var(--set-color, #888); }
+.set.full { box-shadow: 0 0 0 2px var(--gold) inset; }
+.set .cards { display: flex; flex-wrap: wrap; gap: 4px; }
+.bankline { margin: 0 0 10px; }
+.opp-cards { display: flex; flex-wrap: wrap; padding-left: 20px; }
+.opp-cards .dc { --w: 40px; margin-left: -20px; border-width: 1px; }
+.dialog .opts { display: grid; gap: 8px; max-height: 55vh; overflow-y: auto; }
+.dialog .opts .btn { text-align: left; }
+.dialog p { margin: 0; }
+.msg { min-height: 1.4em; margin: 10px 0 0; font-weight: 700; color: var(--gold); }
+@media (max-width: 520px) { .dc { --w: 76px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="c9">Deal</span> <span class="c10">Rush</span></h1>
+    <div class="row"><div class="score" id="score"></div><button type="button" class="btn small" id="sound-btn" aria-pressed="true">Sound on</button></div>
+  </header>
+  <nav class="games" aria-label="EvenPlay games"><span class="muted">More games:</span> <a href="/">Color Clash</a> <a href="/letter-flip/">Letter Flip</a> <a href="/rummy/">Rummy</a></nav>
+
+  <div id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <section id="home" class="panel home" aria-labelledby="home-h">
+    <h2 id="home-h">Play</h2>
+    <div class="field">
+      <label for="name-input">Your name</label>
+      <input id="name-input" type="text" autocomplete="nickname" maxlength="24" placeholder="Shown to the other player">
+    </div>
+    <div class="row"><button type="button" class="btn primary" id="create-btn">Create a new game</button></div>
+    <div class="field">
+      <label for="code-input">Game code from your partner</label>
+      <input id="code-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="16" placeholder="For example TIGER42">
+    </div>
+    <div class="row">
+      <button type="button" class="btn" id="join-btn">Join game</button>
+      <button type="button" class="btn" id="practice-btn">Practice against the computer</button>
+    </div>
+    <p class="muted" id="home-msg" style="margin:0"></p>
+  </section>
+
+  <div id="game" hidden>
+    <div style="display:grid; gap:18px">
+      <div class="banner" id="banner"></div>
+
+      <section id="room" class="panel" aria-labelledby="room-h">
+        <h2 id="room-h">Game code</h2>
+        <div class="code-big" id="room-code"></div>
+        <p class="muted" style="margin:0 0 12px">Share this code with your partner. They open this page, type the code, and join.</p>
+        <div class="row" id="room-actions"></div>
+      </section>
+
+      <section id="lobby" class="panel" aria-labelledby="lobby-h">
+        <h2 id="lobby-h">Players</h2>
+        <div class="seats" id="seats"></div>
+        <p id="result" style="margin:12px 0 0"></p>
+        <div class="row" style="margin-top:12px" id="lobby-actions"></div>
+      </section>
+
+      <section id="mine" class="panel" hidden aria-labelledby="mine-h">
+        <h2 id="mine-h">Your hand</h2>
+        <p id="hand-help" class="muted" style="margin:0"></p>
+        <div class="hand" id="hand" role="group" aria-labelledby="mine-h"></div>
+        <div class="row" style="margin-top:14px" id="actions"></div>
+        <p class="msg" id="msg" aria-live="polite"></p>
+      </section>
+
+      <section id="my-table" class="panel" hidden aria-labelledby="my-table-h">
+        <h2 id="my-table-h">Your table</h2>
+        <p class="bankline" id="my-bank"></p>
+        <ul class="sets" id="my-sets"></ul>
+      </section>
+
+      <section id="opp" class="panel" hidden aria-labelledby="opp-h">
+        <h2 id="opp-h">Opponent</h2>
+        <p id="opp-text" style="margin:0 0 8px"></p>
+        <div class="opp-cards" id="opp-cards" aria-hidden="true"></div>
+        <p class="bankline" id="opp-bank" style="margin-top:10px"></p>
+        <ul class="sets" id="opp-sets"></ul>
+      </section>
+
+      <section class="panel" id="log-panel" hidden aria-labelledby="log-h">
+        <h2 id="log-h">Recent moves</h2>
+        <ol class="log" id="log"></ol>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel" aria-labelledby="rules-h">
+    <details>
+      <summary id="rules-h">How to play</summary>
+      <ul>
+        <li>Goal: be first to have 3 full property sets of different colors on your table. Each property card says how many make a full set.</li>
+        <li>Your turn: you draw 2 cards (5 if your hand is empty), then make up to 3 plays, then End turn. You can hold at most 7 cards at the end of your turn.</li>
+        <li>A play is: put a property on your table; put a money or action card in your bank as money; or use an action card.</li>
+        <li>Rent: charge your opponent for a color you own. Double Rent, played with it, doubles it (each card is a play).</li>
+        <li>Swipe takes one property, Swap trades one for one (neither can be part of a full set). Set Steal takes a whole full set. Collect Debt is 5 million, Party Time is 2 million. Bonus Draw draws 2 cards. House adds 3 million rent to a full set, Hotel adds 4 more.</li>
+        <li>No Way! blocks an action played on you. Your opponent can play their own No Way! to block your block. It doesn't use a play.</li>
+        <li>Paying: you pay from your bank and your properties, never from your hand. No change is given. If you can't cover it, you pay everything you have. "Pay automatically" picks the smallest payment for you.</li>
+        <li>Wild properties can be moved between your colors on your turn for free. A full set needs at least one regular property.</li>
+        <li>Screen reader tip: choose a card in your hand to hear everything you can do with it. Each part of the table has its own heading.</li>
+      </ul>
+    </details>
+  </section>
+
+  <footer>Deal Rush, an EvenPlay game made by smoovgunner with Claude, so blind and sighted players can share a game.</footer>
+</div>
+
+<div class="overlay" id="dlg" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-h">
+    <h2 id="dlg-h"></h2>
+    <p id="dlg-text"></p>
+    <div class="opts" id="dlg-opts"></div>
+    <p class="muted" id="dlg-note" style="margin:0"></p>
+    <div class="row" id="dlg-foot"></div>
+  </div>
+</div>
+
+<script type="module">
+import { CARDS, COLORS, ACTIONS, HAND_LIMIT, PLAYS, SETS_TO_WIN, cardName, applyAction, viewFor, cpuAction, newTable,
+  isFull, setRent, rentFor, canBe, payValue, autoPay, fullColors } from "./rules.js";
+
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+let mode = "home";
+let view = null, code = null, ws = null, wsTries = 0, wsTimer = null, pingTimer = null, leaving = false;
+let pst = null, cpuTimer = null;
+let lastEvn = null, discardSel = new Set(), dlgKey = null;
+
+// ---------- sound effects (made in the browser, no audio files) ----------
+  let soundOn = true, actx = null;
+  try { soundOn = localStorage.getItem("cc-sound") !== "off"; } catch (e) {}
+  function audio() {
+    if (!soundOn) return null;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      return actx;
+    } catch (e) { return null; }
+  }
+  function tone(ac, t, freq, dur, type, vol, slideTo) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(ac, t, dur, from, to, vol) {
+    const len = Math.max(1, Math.floor(ac.sampleRate * dur));
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const f = ac.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(from, t);
+    if (to) f.frequency.exponentialRampToValueAtTime(to, t + dur);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(vol || 0.5, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(ac.destination);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+  const SFX = {
+    play: (ac, t) => { noise(ac, t, 0.07, 2500, 1200, 0.7); tone(ac, t, 140, 0.09, "sine", 0.25, 70); },
+    draw: (ac, t) => { noise(ac, t, 0.22, 700, 3200, 0.45); },
+    skip: (ac, t) => { tone(ac, t, 660, 0.09, "square", 0.08); tone(ac, t + 0.1, 990, 0.12, "square", 0.08); },
+    plus: (ac, t) => { tone(ac, t, 520, 0.16, "sawtooth", 0.08, 390); tone(ac, t + 0.17, 390, 0.26, "sawtooth", 0.08, 260); },
+    wild: (ac, t) => { [523, 659, 784, 1047].forEach((f, i) => tone(ac, t + i * 0.07, f, 0.18, "triangle", 0.12)); },
+    turn: (ac, t) => { tone(ac, t, 659, 0.22, "sine", 0.16); tone(ac, t + 0.14, 880, 0.35, "sine", 0.16); },
+    last: (ac, t) => { tone(ac, t, 1320, 0.5, "sine", 0.14); tone(ac, t, 1980, 0.4, "sine", 0.05); },
+    win: (ac, t) => { [523, 659, 784].forEach((f, i) => tone(ac, t + i * 0.13, f, 0.16, "square", 0.08)); tone(ac, t + 0.42, 1047, 0.6, "square", 0.09); },
+    lose: (ac, t) => { [392, 370, 349].forEach((f, i) => tone(ac, t + i * 0.28, f, 0.26, "sawtooth", 0.07)); tone(ac, t + 0.84, 330, 0.7, "sawtooth", 0.07, 300); },
+  };
+  function playSounds(names) {
+    const ac = audio(); if (!ac) return;
+    let t = ac.currentTime + 0.03;
+    for (const n of names) { if (SFX[n]) { SFX[n](ac, t); t += n === "win" || n === "lose" ? 1.2 : 0.3; } }
+  }
+  function renderSoundBtn() {
+    const b = $("sound-btn");
+    b.textContent = soundOn ? "Sound on" : "Sound off";
+    b.setAttribute("aria-pressed", soundOn ? "true" : "false");
+  }
+  $("sound-btn").addEventListener("click", () => {
+    soundOn = !soundOn;
+    try { localStorage.setItem("cc-sound", soundOn ? "on" : "off"); } catch (e) {}
+    renderSoundBtn();
+    if (soundOn) playSounds(["turn"]);
+  });
+  renderSoundBtn();
+
+
+SFX.nope = (ac, t) => { tone(ac, t, 200, 0.18, "square", 0.07, 150); tone(ac, t + 0.2, 150, 0.25, "square", 0.07, 110); };
+SFX.coin = (ac, t) => { tone(ac, t, 988, 0.08, "square", 0.06); tone(ac, t + 0.08, 1319, 0.25, "square", 0.06); };
+SFX.alert = (ac, t) => { tone(ac, t, 784, 0.12, "triangle", 0.14); tone(ac, t + 0.13, 784, 0.12, "triangle", 0.14); tone(ac, t + 0.26, 1047, 0.3, "triangle", 0.14); };
+
+// ---------- words ----------
+const myName = () => ($("name-input").value.trim() || store.get("cc-name") || "").slice(0, 24);
+function nameOf(seat) {
+  if (!view || seat == null || seat < 0) return "";
+  if (seat === view.you) return "You";
+  if (mode === "practice" && seat === 1) return "The computer";
+  return view.names[seat] || "Your partner";
+}
+const your = (seat) => (seat === view.you ? "your" : nameOf(seat) + "'s");
+const verb = (seat, you, them) => (seat === view.you ? you : them);
+const M = (n) => n + " million";
+const cname = (id) => cardName(id);
+const colorName = (c) => COLORS[c].name;
+function describeSet(s) {
+  const size = COLORS[s.color].size;
+  let t = colorName(s.color) + ": " + Math.min(s.cards.length, size) + " of " + size + (isFull(s) ? ", full set" : "") + ". Rent " + M(setRent(s)) + ".";
+  t += " Cards: " + s.cards.map((id) => (CARDS[id].kind === "wild" ? "wild" : colorName(s.color))).join(", ") + ".";
+  if (s.house) t += " House."; if (s.hotel) t += " Hotel.";
+  return t;
+}
+function bankTotal(p) { return view.banks[p].reduce((n, id) => n + CARDS[id].value, 0); }
+function actWords(a) {
+  const who = nameOf(a.actor), them = 1 - a.actor;
+  switch (a.type) {
+    case "rent": return who + verb(a.actor, " charge ", " charges ") + (them === view.you ? "you " : nameOf(them) + " ") + M(a.amount) + " rent for " + colorName(a.color) + (a.doubles ? ", doubled" + (a.doubles > 1 ? " twice" : "") : "") + ".";
+    case "debt": return who + verb(a.actor, " play ", " plays ") + "Collect Debt: " + (them === view.you ? "you owe " : nameOf(them) + " owes ") + M(5) + ".";
+    case "party": return who + verb(a.actor, " play ", " plays ") + "Party Time: " + (them === view.you ? "you owe " : nameOf(them) + " owes ") + M(2) + ".";
+    case "swipe": return who + verb(a.actor, " play ", " plays ") + "Swipe to take " + your(them) + " " + cname(a.take) + ".";
+    case "swap": return who + verb(a.actor, " play ", " plays ") + "Swap: " + your(a.actor) + " " + cname(a.give) + " for " + your(them) + " " + cname(a.take) + ".";
+    case "steal": return who + verb(a.actor, " play ", " plays ") + "Set Steal on " + your(them) + " full " + colorName(a.color) + " set!";
+  }
+  return "";
+}
+function eventText(ev) {
+  const who = nameOf(ev.s), mine = ev.s === view.you;
+  switch (ev.t) {
+    case "deal": return "New game. " + who + verb(ev.s, " go first.", " goes first.");
+    case "turn": return mine ? "Your turn. You drew " + (ev.cards.length ? ev.cards.map(cname).join(" and ") : "nothing") + ". " + PLAYS + " plays left." : who + "'s turn. " + who + " drew " + ev.cards.length + " cards.";
+    case "bank": return who + verb(ev.s, " banked ", " banked ") + (CARDS[ev.card].kind === "money" ? M(CARDS[ev.card].value) : cname(ev.card) + " as " + M(CARDS[ev.card].value)) + ".";
+    case "property": return who + verb(ev.s, " played ", " played ") + (CARDS[ev.card].kind === "wild" ? "a wild property as " + colorName(ev.color) : "a " + cname(ev.card)) + ".";
+    case "move": return who + " moved a wild property to " + colorName(ev.color) + ".";
+    case "act": return actWords(ev.a);
+    case "noway": return who + verb(ev.s, " played ", " played ") + "No Way!" + (ev.nopes > 1 ? " back." : ".");
+    case "accept": return ev.blocked ? "Blocked! The move doesn't happen." : "";
+    case "paid":
+      if (ev.broke) return who + verb(ev.s, " have", " has") + " nothing to pay with, so nothing is paid.";
+      return who + verb(ev.s, " paid ", " paid ") + (ev.to === view.you ? "you " : nameOf(ev.to) + " ") + M(ev.total) + (ev.cards.length ? ": " + ev.cards.map(cname).join(", ") : "") + "." + (ev.total < ev.amount ? " That's everything " + verb(ev.s, "you", "they") + " had." : "");
+    case "swiped": return who + verb(ev.s, " took ", " took ") + "the " + cname(ev.card) + ".";
+    case "swapped": return "Swap done.";
+    case "stole": return who + verb(ev.s, " took ", " took ") + "the whole " + colorName(ev.color) + " set!";
+    case "build": return who + verb(ev.s, " put ", " put ") + "a " + (ev.what === "house" ? "house" : "hotel") + " on " + your(ev.s) + " " + colorName(ev.color) + " set.";
+    case "bonus": return mine ? "You drew " + ev.cards.map(cname).join(" and ") + "." : who + " drew 2 more cards.";
+    case "discard": return who + verb(ev.s, " discarded ", " discarded ") + ev.cards.map(cname).join(", ") + ".";
+    case "win": return (mine ? "You have " : who + " has ") + "3 full sets: " + ev.sets.map(colorName).join(", ") + ". " + (mine ? "You win!" : who + " wins!");
+    default: return "";
+  }
+}
+function say(text) { const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
+function problem(text) { $("msg").textContent = text; say(text); playSounds(["nope"]); }
+function eventSounds(ev) {
+  switch (ev.t) {
+    case "turn": case "bonus": case "deal": return ["draw"];
+    case "property": case "move": return ["play"];
+    case "bank": return ["coin"];
+    case "act": return ev.a.actor === view.you ? ["play"] : ["alert"];
+    case "noway": return ["skip"];
+    case "paid": return ev.total ? ["coin"] : [];
+    case "stole": case "swiped": return ["plus"];
+    case "build": return ["wild"];
+    case "win": return [ev.s === view.you ? "win" : "lose"];
+  }
+  return [];
+}
+
+// ---------- card pictures ----------
+const cssColor = (c) => "var(--c-" + c + ")";
+function cardEl(id, tag, size) {
+  const c = CARDS[id];
+  const el = document.createElement(tag || "div");
+  el.className = "dc " + c.kind + (size ? " " + size : "");
+  const band = document.createElement("div"); band.className = "band";
+  const colors = c.kind === "prop" ? [c.color] : (c.kind === "wild" || c.kind === "rent") ? (c.colors === "any" ? Object.keys(COLORS).slice(0, 8) : c.colors) : [];
+  for (const col of colors) { const s = document.createElement("span"); s.style.background = cssColor(col); band.append(s); }
+  el.append(band);
+  const title = document.createElement("div"); title.className = "title";
+  const big = document.createElement("div"); big.className = "big";
+  const foot = document.createElement("div"); foot.className = "foot";
+  if (c.kind === "money") { big.textContent = c.value + "M"; title.textContent = "Money"; }
+  else if (c.kind === "prop") { title.textContent = COLORS[c.color].name; foot.textContent = "Rent " + COLORS[c.color].rent.join(" / "); }
+  else if (c.kind === "wild") { title.textContent = "Wild: " + (c.colors === "any" ? "any color" : c.colors.map((x) => COLORS[x].name).join(" / ")); }
+  else if (c.kind === "rent") { title.textContent = "RENT"; foot.textContent = c.colors === "any" ? "Any color" : c.colors.map((x) => COLORS[x].name).join(" / "); }
+  else { title.textContent = ACTIONS[c.act].name; foot.textContent = ACTIONS[c.act].text; }
+  const val = document.createElement("span"); val.className = "val"; val.textContent = c.value + "M";
+  el.append(title, big, foot, val);
+  return el;
+}
+
+// ---------- moves ----------
+const P = () => view && view.pending;
+const myTurn = () => view && view.status === "playing" && view.turn === view.you;
+const canPlay = () => myTurn() && !P() && view.phase === "play" && view.plays < PLAYS;
+function act(action) {
+  if (mode === "online") {
+    if (!ws || ws.readyState !== 1) { say("Not connected right now. Trying to reconnect."); return; }
+    ws.send(JSON.stringify({ type: "act", action }));
+  } else if (mode === "practice") {
+    const err = applyAction(pst, 0, action);
+    if (err) { problem(err); return; }
+    showPractice();
+  }
+}
+
+// ---------- dialog ----------
+let dlgReturn = null;
+function openDialog(title, text, opts, note, foot) {
+  if ($("dlg").hidden) dlgReturn = document.activeElement;
+  $("dlg-h").textContent = title;
+  $("dlg-text").textContent = text || "";
+  const box = $("dlg-opts"); box.replaceChildren();
+  for (const o of opts) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (o.primary ? " primary" : "");
+    b.textContent = o.label;
+    if (o.pressed !== undefined) b.setAttribute("aria-label", o.label + (o.pressed ? ", chosen" : ""));
+    if (o.disabled) b.setAttribute("aria-disabled", "true");
+    b.addEventListener("click", () => { if (o.disabled) { if (o.why) problem(o.why); return; } o.fn(); });
+    box.append(b);
+  }
+  $("dlg-note").textContent = note || "";
+  const f = $("dlg-foot"); f.replaceChildren();
+  for (const o of foot || []) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (o.primary ? " primary" : ""); b.textContent = o.label;
+    if (o.disabled) b.setAttribute("aria-disabled", "true");
+    b.addEventListener("click", () => { if (o.disabled) { if (o.why) problem(o.why); return; } o.fn(); });
+    f.append(b);
+  }
+  $("dlg").hidden = false;
+  (box.querySelector("button") || f.querySelector("button"))?.focus();
+}
+function closeDialog() {
+  $("dlg").hidden = true; dlgKey = null;
+  if (dlgReturn && document.contains(dlgReturn)) dlgReturn.focus();
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("dlg").hidden && dlgKey && !dlgKey.startsWith("must")) closeDialog(); });
+const cancel = { label: "Cancel", fn: closeDialog };
+
+// what can I do with this card?
+function cardMenu(id) {
+  const c = CARDS[id], me = view.you, them = 1 - me;
+  const play = canPlay();
+  const why = !myTurn() ? "Wait for your turn." : P() ? "Wait for your opponent to answer first." : view.plays >= PLAYS ? "You've used all 3 plays. Choose End turn." : "";
+  const go = (a) => { closeDialog(); act(a); };
+  const opts = [];
+  const plays = PLAYS - view.plays;
+  const myTable = view.tables[me], theirTable = view.tables[them];
+  if (c.kind === "prop") opts.push({ label: "Play on your table as " + COLORS[c.color].name, fn: () => go({ t: "property", card: id }), primary: true });
+  if (c.kind === "wild") for (const col of c.colors === "any" ? Object.keys(COLORS) : c.colors) {
+    const s = myTable.find((x) => x.color === col && !isFull(x));
+    opts.push({ label: "Play as " + COLORS[col].name + (s ? " (you have " + s.cards.length + " of " + COLORS[col].size + ")" : ""), fn: () => go({ t: "property", card: id, color: col }) });
+  }
+  if (c.kind === "rent") {
+    const doubles = view.hand.filter((h) => CARDS[h].act === "double");
+    for (const col of c.colors === "any" ? Object.keys(COLORS) : c.colors) {
+      const r = rentFor(myTable, col);
+      if (!r) { if (c.colors !== "any") opts.push({ label: "Rent for " + COLORS[col].name + ": you don't own any", disabled: true, why: "You need at least one " + COLORS[col].name + " property to charge its rent." }); continue; }
+      opts.push({ label: "Charge " + M(r) + " rent for " + COLORS[col].name, fn: () => go({ t: "rent", card: id, color: col, doubles: [] }), primary: true });
+      for (let n = 1; n <= Math.min(doubles.length, plays - 1); n++)
+        opts.push({ label: "Charge " + M(r * 2 ** n) + " for " + COLORS[col].name + " with " + (n === 1 ? "Double Rent" : n + " Double Rents") + " (" + (n + 1) + " plays)", fn: () => go({ t: "rent", card: id, color: col, doubles: doubles.slice(0, n) }) });
+    }
+  }
+  if (c.kind === "action") {
+    const a = c.act;
+    if (a === "bonus") opts.push({ label: "Play: draw 2 more cards", fn: () => go({ t: "action", card: id }), primary: true });
+    if (a === "debt") opts.push({ label: "Play: " + nameOf(them) + " pays you " + M(5), fn: () => go({ t: "action", card: id }), primary: true });
+    if (a === "party") opts.push({ label: "Play: " + nameOf(them) + " pays you " + M(2), fn: () => go({ t: "action", card: id }), primary: true });
+    if (a === "swipe") for (const s of theirTable.filter((s) => !isFull(s))) for (const pid of s.cards)
+      opts.push({ label: "Take " + your(them) + " " + cname(pid) + (CARDS[pid].kind === "wild" ? " (now " + COLORS[s.color].name + ")" : ""), fn: () => go({ t: "action", card: id, take: pid }) });
+    if (a === "swap") for (const s of theirTable.filter((s) => !isFull(s))) for (const pid of s.cards)
+      opts.push({ label: "Take " + your(them) + " " + cname(pid) + ", then pick what to give", fn: () => swapGive(id, pid) });
+    if (a === "steal") for (const s of theirTable.filter(isFull))
+      opts.push({ label: "Take " + your(them) + " full " + COLORS[s.color].name + " set (rent " + M(setRent(s)) + ")", fn: () => go({ t: "action", card: id, set: s.id }), primary: true });
+    if (a === "house" || a === "hotel") for (const s of myTable.filter((s) => isFull(s) && s.color !== "station" && s.color !== "utility" && (a === "house" ? !s.house : s.house && !s.hotel)))
+      opts.push({ label: "Put it on your " + COLORS[s.color].name + " set", fn: () => go({ t: "action", card: id, set: s.id }), primary: true });
+    if (["swipe", "swap", "steal", "house", "hotel"].includes(a) && !opts.length)
+      opts.push({ label: "No " + (a === "steal" ? "full sets to take" : a === "house" || a === "hotel" ? "sets it can go on" : "properties it can take") + " right now", disabled: true, why: ACTIONS[a].text });
+  }
+  if (c.kind !== "prop" && c.kind !== "wild") opts.push({ label: "Put in your bank as " + M(c.value), fn: () => go({ t: "bank", card: id }) });
+  for (const o of opts) if (!play && !o.disabled) { o.disabled = true; o.why = why; }
+  const desc = c.kind === "action" ? ACTIONS[c.act].text : c.kind === "prop" ? "Full set: " + COLORS[c.color].size + " cards. Rent by number owned: " + COLORS[c.color].rent.map(M).join(", ") + ". Worth " + M(c.value) + "."
+    : c.kind === "wild" ? "Counts as either color. You can move it between your sets for free on your turn. " + (c.colors === "any" ? "Worth nothing as payment." : "Worth " + M(c.value) + ".") : c.kind === "rent" ? "Charge rent for a color you own. Worth " + M(c.value) + " in the bank." : "Worth " + M(c.value) + ".";
+  dlgKey = "card";
+  openDialog(cname(id), desc, opts, play ? "Plays left this turn: " + plays + "." : why, [cancel]);
+}
+function swapGive(card, take) {
+  const mine = view.tables[view.you].filter((s) => !isFull(s));
+  const opts = [];
+  for (const s of mine) for (const pid of s.cards) opts.push({ label: "Give your " + cname(pid), fn: () => { closeDialog(); act({ t: "action", card, take, give: pid }); } });
+  if (!opts.length) opts.push({ label: "You have no properties outside full sets to give", disabled: true, why: "Swap needs one of your properties that isn't part of a full set." });
+  dlgKey = "card";
+  openDialog("Swap for " + your(1 - view.you) + " " + cname(take), "Pick the property you give in return.", opts, "", [cancel]);
+}
+function moveMenu(id, set) {
+  const c = CARDS[id];
+  const opts = [];
+  for (const col of c.colors === "any" ? Object.keys(COLORS) : c.colors) if (col !== set.color)
+    opts.push({ label: "Move to " + COLORS[col].name, fn: () => { closeDialog(); act({ t: "move", card: id, color: col }); } });
+  dlgKey = "card";
+  openDialog("Move your wild property", "It's " + COLORS[set.color].name + " now. Moving it doesn't use a play.", opts, "", [cancel]);
+}
+
+// answers you owe the other player
+let paySel = new Set();
+function pendingDialog() {
+  const p = P();
+  if (!p || view.status !== "playing") { if (dlgKey && dlgKey.startsWith("must")) closeDialog(); return; }
+  const me = view.you;
+  if (p.kind === "respond" && p.waiting === me) {
+    const key = "must-respond-" + p.nopes + "-" + view.evn;
+    if (dlgKey === key) return;
+    const nw = view.hand.filter((id) => CARDS[id].act === "noway").length;
+    const text = p.nopes === 0 ? actWords(p.a) : nameOf(1 - me) + " played No Way! to block " + (p.a.actor === me ? "your move." : "you.");
+    dlgKey = key;
+    openDialog(p.nopes === 0 ? "Your answer" : "Blocked!", text, [
+      { label: p.nopes === 0 ? "Accept" : "Accept the block", fn: () => { closeDialog(); act({ t: "respond", nope: false }); } },
+      { label: "Play No Way!" + (nw ? " (you have " + nw + ")" : " (you have none)"), disabled: !nw, why: "You don't have a No Way! card.", fn: () => { closeDialog(); act({ t: "respond", nope: true }); }, primary: true },
+    ], "", []);
+    return;
+  }
+  if (p.kind === "pay" && p.payer === me) {
+    const key = "must-pay-" + view.evn;
+    if (dlgKey !== key) paySel = new Set();
+    dlgKey = key;
+    const owned = [];
+    for (const id of view.banks[me]) owned.push({ id, where: "bank" });
+    for (const s of view.tables[me]) for (const id of s.cards) owned.push({ id, where: COLORS[s.color].name + " set" + (isFull(s) ? ", full" : "") });
+    const fake = { banks: view.banks, tables: view.tables };
+    const auto = autoPay(fake, me, p.amount);
+    const autoTotal = auto.reduce((n, id) => n + payValue(id), 0);
+    const chosen = [...paySel].reduce((n, id) => n + payValue(id), 0);
+    const opts = [{ label: "Pay automatically: " + auto.map(cname).join(", ") + " (" + M(autoTotal) + ")", primary: true, fn: () => { closeDialog(); act({ t: "pay", auto: true }); } }];
+    for (const o of owned) {
+      const v = payValue(o.id);
+      opts.push({ label: cname(o.id) + ", from your " + o.where + (v ? "" : ", worth nothing"), pressed: paySel.has(o.id), disabled: !v, why: "That wild card is worth nothing as payment.",
+        fn: () => { paySel.has(o.id) ? paySel.delete(o.id) : paySel.add(o.id); dlgKey = null; pendingDialog(); say((paySel.has(o.id) ? "Chosen. " : "Removed. ") + "Total " + M([...paySel].reduce((n, id) => n + payValue(id), 0)) + "."); } });
+    }
+    const why = { rent: "rent", debt: "Collect Debt", party: "Party Time" }[p.why];
+    openDialog("You owe " + M(p.amount), nameOf(p.payee) + " is collecting " + M(p.amount) + " for " + why + ". Pay from your bank and properties. No change is given.", opts,
+      "Chosen so far: " + M(chosen) + ".", [{ label: "Pay the chosen cards (" + M(chosen) + ")", fn: () => { closeDialog(); act({ t: "pay", cards: [...paySel] }); }, disabled: !paySel.size, why: "Choose cards to pay with, or use Pay automatically." }]);
+    return;
+  }
+  if (dlgKey && dlgKey.startsWith("must")) closeDialog();
+}
+
+// ---------- online / practice plumbing ----------
+function tokenFor(c) {
+  let t = store.get("dr-token-" + c);
+  if (!t) { const a = new Uint8Array(16); crypto.getRandomValues(a); t = [...a].map((x) => x.toString(16).padStart(2, "0")).join(""); store.set("dr-token-" + c, t); }
+  return t;
+}
+function connect() {
+  clearTimeout(wsTimer);
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  ws = new WebSocket(proto + "//" + location.host + "/api/dr/room/" + code);
+  ws.onopen = () => {
+    wsTries = 0;
+    ws.send(JSON.stringify({ type: "hello", token: tokenFor(code), name: myName() || "Player" }));
+    clearInterval(pingTimer);
+    pingTimer = setInterval(() => { try { ws.send('{"type":"ping"}'); } catch (e) {} }, 25000);
+  };
+  ws.onmessage = (e) => {
+    let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+    if (m.type === "state") { view = m.view; render(); }
+    else if (m.type === "error") problem(m.message);
+  };
+  ws.onclose = () => {
+    clearInterval(pingTimer);
+    if (leaving || mode !== "online") return;
+    $("banner").textContent = "Connection lost. Reconnecting…"; say("Connection lost. Reconnecting.");
+    wsTries++; wsTimer = setTimeout(connect, Math.min(1000 * wsTries, 8000));
+  };
+}
+function joinRoom(c) {
+  code = c.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (code.length < 3) { $("home-msg").textContent = "Type the game code your partner gave you, like TIGER42."; $("code-input").focus(); return; }
+  store.set("cc-name", myName());
+  mode = "online"; leaving = false; view = null; lastEvn = null;
+  history.replaceState(null, "", "#" + code);
+  showGame(); $("banner").textContent = "Joining game " + code + "…";
+  connect();
+}
+async function createRoom() {
+  $("home-msg").textContent = "Making a new game…";
+  try { const r = await fetch("/api/dr/new"); const { code: c } = await r.json(); joinRoom(c); }
+  catch (e) { $("home-msg").textContent = "Couldn't reach the game server. Check your internet connection and try again."; }
+}
+function leaveGame() {
+  leaving = true; clearTimeout(wsTimer); clearInterval(pingTimer); clearTimeout(cpuTimer);
+  if (ws && mode === "online") { try { ws.send('{"type":"leave"}'); ws.close(); } catch (e) {} }
+  ws = null; mode = "home"; view = null; pst = null; closeDialog();
+  history.replaceState(null, "", location.pathname);
+  $("game").hidden = true; $("home").hidden = false; $("score").textContent = ""; $("home-msg").textContent = "";
+  say("Left the game.");
+}
+function startPractice() {
+  store.set("cc-name", myName());
+  mode = "practice"; lastEvn = null;
+  pst = newTable();
+  pst.seats = [{ name: myName() || "You", token: "me" }, { name: "The computer", token: "cpu" }];
+  applyAction(pst, 0, { t: "deal" });
+  showGame(); showPractice();
+}
+function cpuNeeded() {
+  if (pst.status !== "playing") return false;
+  const p = pst.pending;
+  if (p) return p.kind === "pay" ? p.payer === 1 : p.waiting === 1;
+  return pst.turn === 1;
+}
+function showPractice() {
+  view = viewFor(pst, 0, [true, true]);
+  render();
+  clearTimeout(cpuTimer);
+  if (cpuNeeded()) cpuTimer = setTimeout(() => {
+    if (mode !== "practice" || !cpuNeeded()) return;
+    const a = cpuAction(pst, 1);
+    if (a) applyAction(pst, 1, a);
+    showPractice();
+  }, 1700);
+}
+function showGame() { $("home").hidden = true; $("game").hidden = false; $("banner").setAttribute("tabindex", "-1"); $("banner").focus(); }
+
+// ---------- render ----------
+function button(label, onClick, cls, disabled, why) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "btn" + (cls ? " " + cls : ""); b.textContent = label;
+  if (disabled) b.setAttribute("aria-disabled", "true");
+  b.addEventListener("click", () => { if (b.getAttribute("aria-disabled") !== "true") onClick(); else if (why) problem(why); });
+  return b;
+}
+function renderRoom() {
+  $("room").hidden = mode !== "online";
+  if (mode !== "online") return;
+  $("room-code").textContent = code;
+  $("room-code").setAttribute("aria-label", "Game code: " + code.split("").join(" "));
+  const acts = $("room-actions"); acts.replaceChildren();
+  const link = location.origin + location.pathname + "#" + code;
+  if (navigator.share) acts.append(button("Send invite", async () => { try { await navigator.share({ title: "Deal Rush", text: "Play Deal Rush with me! Game code " + code, url: link }); } catch (e) {} }, "primary"));
+  acts.append(button("Copy invite link", async () => {
+    try { await navigator.clipboard.writeText(link); say("Invite link copied."); }
+    catch (e) { say("Couldn't copy. The game code is " + code.split("").join(" ") + "."); }
+  }));
+}
+function renderLobby() {
+  const seats = $("seats"); seats.replaceChildren();
+  for (let i = 0; i < 2; i++) {
+    const box = document.createElement("div"); box.className = "seat";
+    const label = document.createElement("strong");
+    const here = view.present[i], on = mode === "practice" || view.connected[i];
+    label.textContent = !here ? "Waiting for a player" : (i === view.you ? "You" : nameOf(i));
+    const st = document.createElement("span"); st.className = "muted";
+    if (here) {
+      const dot = document.createElement("span"); dot.className = "dot" + (on ? " on" : ""); dot.setAttribute("aria-hidden", "true");
+      st.append(dot, document.createTextNode(on ? "Connected" : "Not connected right now"));
+    } else st.textContent = "Open seat";
+    box.append(label, st); seats.append(box);
+  }
+  const w = view.events.find((e) => e.t === "win");
+  $("result").textContent = view.status === "over" && w ? eventText(w) : "";
+  const acts = $("lobby-actions"); acts.replaceChildren();
+  if (view.you >= 0 && view.present[0] && view.present[1] && view.status !== "playing")
+    acts.append(button(view.status === "over" ? "Play again" : "Deal the cards", () => act({ t: "deal" }), "primary"));
+  acts.append(button(mode === "practice" ? "Leave practice" : "Leave game", leaveGame));
+}
+function renderSets(listEl, p, editable) {
+  listEl.replaceChildren();
+  const sets = view.tables[p];
+  if (!sets.length) { const li = document.createElement("li"); li.className = "muted"; li.textContent = "No properties yet."; listEl.append(li); return; }
+  const sorted = sets.slice().sort((a, b) => isFull(b) - isFull(a));
+  for (const s of sorted) {
+    const li = document.createElement("li"); li.className = "set" + (isFull(s) ? " full" : "");
+    li.style.setProperty("--set-color", cssColor(s.color));
+    const t = document.createElement("div"); t.textContent = describeSet(s);
+    const cards = document.createElement("div"); cards.className = "cards"; cards.setAttribute("aria-hidden", "true");
+    for (const id of s.cards) cards.append(cardEl(id, "div", "mini"));
+    li.append(t, cards);
+    if (editable) for (const id of s.cards) if (CARDS[id].kind === "wild")
+      li.append(button("Move the wild card in " + COLORS[s.color].name, () => moveMenu(id, s), "small", !(myTurn() && !P()), "You can move wild cards on your own turn."));
+    listEl.append(li);
+  }
+}
+function renderTables() {
+  const me = view.you, them = 1 - me;
+  const full = (p) => fullColors(view.tables[p]).size;
+  $("my-table-h").textContent = "Your table: " + full(me) + " of " + SETS_TO_WIN + " full sets";
+  $("my-bank").textContent = "Your bank: " + M(bankTotal(me)) + (view.banks[me].length ? " (" + view.banks[me].map((id) => CARDS[id].value + "M").join(", ") + ")" : "") + ".";
+  renderSets($("my-sets"), me, true);
+  $("opp-h").textContent = nameOf(them) + ": " + full(them) + " of " + SETS_TO_WIN + " full sets";
+  let t = nameOf(them) + " has " + view.counts[them] + (view.counts[them] === 1 ? " card" : " cards") + " in hand.";
+  if (mode === "online" && view.present[them] && !view.connected[them]) t += " Their connection dropped; the game waits for them.";
+  $("opp-text").textContent = t;
+  const box = $("opp-cards"); box.replaceChildren();
+  for (let i = 0; i < Math.min(view.counts[them], 12); i++) { const b = document.createElement("div"); b.className = "dc back"; box.append(b); }
+  $("opp-bank").textContent = nameOf(them) + "'s bank: " + M(bankTotal(them)) + ".";
+  renderSets($("opp-sets"), them, false);
+}
+function renderHand() {
+  const hand = $("hand");
+  const discarding = myTurn() && view.phase === "discard" && !P();
+  for (const id of [...discardSel]) if (!view.hand.includes(id) || !discarding) discardSel.delete(id);
+  const key = view.hand.join(",") + (discarding ? "|d" : "");
+  const active = document.activeElement;
+  const focusedId = hand.contains(active) ? active.dataset.id : null;
+  const focusedIdx = focusedId ? [...hand.children].indexOf(active) : -1;
+  if (hand.dataset.key !== key) {
+    hand.replaceChildren();
+    for (const id of view.hand) {
+      const b = cardEl(id, "button");
+      b.type = "button"; b.dataset.id = id;
+      b.addEventListener("click", () => {
+        if (myTurn() && view.phase === "discard" && !P()) {
+          discardSel.has(id) ? discardSel.delete(id) : discardSel.add(id);
+          renderHand();
+          say((discardSel.has(id) ? "Chosen to discard. " : "Not discarding. ") + discardSel.size + " of " + (view.hand.length - HAND_LIMIT) + " chosen.");
+        } else cardMenu(id);
+      });
+      hand.append(b);
+    }
+    hand.dataset.key = key;
+    if (focusedIdx >= 0) (hand.querySelector('[data-id="' + focusedId + '"]') || hand.children[Math.min(focusedIdx, hand.children.length - 1)])?.focus();
+  }
+  for (const b of hand.children) {
+    const on = discardSel.has(b.dataset.id);
+    b.classList.toggle("selected", on);
+    b.setAttribute("aria-label", cname(b.dataset.id) + (on ? ", chosen to discard" : ""));
+  }
+  $("mine-h").textContent = "Your hand: " + view.hand.length + (view.hand.length === 1 ? " card" : " cards");
+  const acts = $("actions"); acts.replaceChildren();
+  if (view.status !== "playing") { $("hand-help").textContent = ""; return; }
+  if (discarding) {
+    const need = view.hand.length - HAND_LIMIT;
+    $("hand-help").textContent = "You have " + view.hand.length + " cards. Choose " + need + " to discard, so you end with " + HAND_LIMIT + ".";
+    acts.append(button("Discard the chosen cards (" + discardSel.size + " of " + need + ")", () => { act({ t: "discard", cards: [...discardSel] }); discardSel.clear(); }, "primary", discardSel.size !== need, "Choose exactly " + need + " cards to discard."));
+    return;
+  }
+  $("hand-help").textContent = myTurn() ? (P() ? "Waiting for " + nameOf(1 - view.you) + " to answer." : "Plays left: " + (PLAYS - view.plays) + ". Choose a card to see what it can do.") : "Choose a card to read about it.";
+  if (myTurn()) acts.append(button("End turn", () => act({ t: "end" }), view.plays >= PLAYS ? "primary" : "", !!P(), "Wait for your opponent to answer first."));
+}
+function renderLog() {
+  const log = $("log"); log.replaceChildren();
+  for (const ev of view.events.slice(0, 10)) { const t = eventText(ev); if (!t) continue; const li = document.createElement("li"); li.textContent = t; log.append(li); }
+}
+function bannerText() {
+  if (view.you < 0) return "This game already has two players. You can watch, but not play.";
+  if (view.status === "waiting") return view.present[0] && view.present[1] ? "Both players are here. Deal the cards to start." : "Waiting for your partner to join with code " + code + ".";
+  if (view.status === "over") return (view.winner === view.you ? "You win!" : nameOf(view.winner) + " wins!") + " Choose Play again for another game.";
+  const p = P();
+  if (p) {
+    if (p.kind === "pay") return p.payer === view.you ? "You owe " + M(p.amount) + ". Choose how to pay." : "Waiting for " + nameOf(p.payer) + " to pay " + M(p.amount) + ".";
+    return p.waiting === view.you ? "Your answer is needed." : "Waiting for " + nameOf(p.waiting) + " to answer.";
+  }
+  if (!myTurn()) return nameOf(view.turn) + "'s turn.";
+  if (view.phase === "discard") return "Too many cards. Discard down to " + HAND_LIMIT + ".";
+  return "Your turn. Plays left: " + (PLAYS - view.plays) + ".";
+}
+function render() {
+  if (!view) return;
+  const playing = view.status === "playing" || view.status === "over";
+  renderRoom();
+  $("lobby").hidden = view.status === "playing";
+  for (const id of ["my-table", "opp", "log-panel"]) $(id).hidden = !playing;
+  $("mine").hidden = !playing || view.you < 0;
+  renderLobby();
+  $("score").textContent = view.present[0] && view.present[1] ? "Games won: " + nameOf(0) + " " + view.wins[0] + ", " + nameOf(1) + " " + view.wins[1] : "";
+  const banner = $("banner");
+  banner.textContent = bannerText();
+  banner.classList.toggle("mine", view.status === "playing" && ((myTurn() && !P()) || (P() && (P().kind === "pay" ? P().payer === view.you : P().waiting === view.you))));
+  if (playing) { renderTables(); renderHand(); renderLog(); }
+  $("msg").textContent = "";
+
+  if (lastEvn === null) {
+    lastEvn = view.evn;
+    say(banner.textContent);
+  } else if (view.evn > lastEvn) {
+    const fresh = view.events.filter((e) => e.n > lastEvn).sort((a, b) => a.n - b.n);
+    lastEvn = view.evn;
+    const words = fresh.map(eventText).filter(Boolean).join(" ");
+    const tail = P() && (P().kind === "pay" ? P().payer !== view.you : P().waiting !== view.you) ? " " + bannerText() : "";
+    say((words + tail).trim());
+    const sounds = [].concat(...fresh.map(eventSounds));
+    if (fresh.some((e) => e.t === "turn" && e.s === view.you)) sounds.push("turn");
+    playSounds(sounds.slice(0, 4));
+  }
+  // dialogs that need an answer open on their own, after the words above are queued
+  if (view.status === "playing") setTimeout(pendingDialog, 900); else if (dlgKey && dlgKey.startsWith("must")) closeDialog();
+  if (dlgKey === "card" && view.status !== "playing") closeDialog();
+}
+
+// ---------- home ----------
+$("name-input").value = store.get("cc-name") || "";
+$("create-btn").addEventListener("click", createRoom);
+$("join-btn").addEventListener("click", () => joinRoom($("code-input").value));
+$("code-input").addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom($("code-input").value); });
+$("practice-btn").addEventListener("click", startPractice);
+const fromLink = location.hash.replace("#", "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+if (fromLink) {
+  $("code-input").value = fromLink;
+  if (store.get("cc-name")) joinRoom(fromLink);
+  else $("home-msg").textContent = "You've been invited to game " + fromLink + ". Type your name, then choose Join game.";
+}
+</script>
+</body>
+</html>
