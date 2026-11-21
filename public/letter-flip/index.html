@@ -259,7 +259,7 @@ footer a, .games a { color: var(--gold); }
     <div class="row">
       <button type="button" class="btn" id="join-btn">Join game</button>
       <button type="button" class="btn" id="practice-turns-btn">Practice: take turns</button>
-      <button type="button" class="btn" id="practice-speed-btn">Practice: speed round</button>
+      <button type="button" class="btn" id="practice-points-btn">Practice: points game</button>
     </div>
     <p class="muted" id="home-msg" style="margin:0"></p>
   </section>
@@ -278,6 +278,12 @@ footer a, .games a { color: var(--gold); }
       <section id="lobby" class="panel" aria-labelledby="lobby-h">
         <h2 id="lobby-h">Players</h2>
         <div class="seats" id="seats"></div>
+        <div class="field" id="target-field" style="margin-top:12px; max-width:260px" hidden>
+          <label for="target-select">Points to win (points game)</label>
+          <select id="target-select" style="font:700 18px var(--font-body); padding:10px; border-radius:12px; background:var(--rail); color:var(--ink); border:2px solid var(--ink-soft); min-height:48px">
+            <option value="50">50 points</option><option value="100" selected>100 points</option><option value="150">150 points</option><option value="200">200 points</option><option value="250">250 points</option><option value="300">300 points</option>
+          </select>
+        </div>
         <div class="row" style="margin-top:12px" id="lobby-actions"></div>
       </section>
 
@@ -285,6 +291,7 @@ footer a, .games a { color: var(--gold); }
         <h2 id="word-h">The word</h2>
         <p id="word-text" style="margin:0"></p>
         <div class="word" id="word" aria-hidden="true"></div>
+        <p class="muted" id="used-text" style="margin:6px 0 0"></p>
         <form id="slam-form" class="field" style="margin-top:14px" autocomplete="off">
           <label for="slam-input">Type your new word</label>
           <div class="row" style="flex-wrap:nowrap">
@@ -320,10 +327,11 @@ footer a, .games a { color: var(--gold); }
       <ul>
         <li>There's one four-letter word in the middle. Change one letter to make a new real word, using a letter from one of your cards. GAME, then GATE, then LATE.</li>
         <li>Every card has a letter on each side, and you can use either one. Blank cards can be any letter.</li>
-        <li>The fastest way: type the new word and choose Flip it. The game finds the right card for you. Or pick a card from your hand and choose where it goes.</li>
-        <li>Take turns mode: one move per turn. Can't make a word? Draw a card. When the pile runs out, pass.</li>
-        <li>Speed mode: no turns. Both players flip letters as fast as they can. If the word changes under you, try again on the new word.</li>
-        <li>First player to use all their cards wins. If nobody can make a word, fewest cards wins.</li>
+        <li>The quickest way: type the new word and choose Flip it. The game finds the right card for you. Or pick a card from your hand and choose where it goes.</li>
+        <li>One move per turn. Can't make a word? Draw a card. When the pile runs out, pass.</li>
+        <li>Careful: a word that isn't in the dictionary, or a word already played this round, costs you your turn.</li>
+        <li>Take turns game: the first player to use all their cards wins. If nobody can make a word, fewest cards wins.</li>
+        <li>Points game: every word scores its letters, as in classic word games (E or T is 1, Q or Z is 10). First to the target score wins. Run out of cards and you get 5 more.</li>
         <li>Screen reader tip: the word, your cards and every move are announced. Each part of the table has its own heading.</li>
       </ul>
     </details>
@@ -345,7 +353,7 @@ footer a, .games a { color: var(--gold); }
 </div>
 
 <script type="module">
-import { applyAction, viewFor, cpuAction, newTable, isBlank, sides, cardText, diff, cardFor } from "./rules.js";
+import { applyAction, viewFor, cpuAction, newTable, isBlank, sides, cardText, diff, cardFor, wordValue, TARGETS } from "./rules.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -440,23 +448,32 @@ function nameOf(seat) {
 function eventText(ev) {
   const who = nameOf(ev.s), mine = ev.s === view.you;
   switch (ev.t) {
-    case "deal": return "New " + (ev.mode === "speed" ? "speed round" : "round, taking turns") + ". The word is " + ev.word + ": " + spell(ev.word) + "." + (ev.mode === "turns" ? " " + who + (mine ? " go first." : " goes first.") : " Go!");
+    case "deal": return "New " + (ev.mode === "points" ? "points game, first to " + ev.target : "game, taking turns") + ". The word is " + ev.word + ": " + spell(ev.word) + ". " + who + (mine ? " go first." : " goes first.");
     case "play": {
       let s = who + " flipped " + (isBlank(ev.card) ? "a blank to " : "") + ev.letter + " into spot " + (ev.pos + 1) + ". " + ev.from + " became " + ev.to + ".";
-      if (ev.left === 1) s += " " + who + (mine ? " have" : " has") + " one card left!";
+      if (ev.gained) s += " Worth " + ev.gained + (ev.gained === 1 ? " point. " : " points. ") + who + (mine ? " have " : " has ") + ev.total + ".";
+      if (ev.left === 1 && view.mode !== "points") s += " " + who + (mine ? " have" : " has") + " one card left!";
       return s;
     }
+    case "miss": return (mine ? "You tried " : who + " tried ") + ev.word + ". " + (ev.why === "used" ? "That word was already played this round" : "That's not in the dictionary") + (mine ? ", so you lose your turn." : ", so " + who + " loses the turn.");
+    case "refill": return ev.got ? who + (mine ? " ran out of cards and got " : " ran out of cards and got ") + ev.got + " new ones." : "";
     case "draw": return mine ? "You drew a card: " + cardText(ev.card) + "." : who + " drew a card.";
     case "pass": return who + (mine ? " pass." : " passed.");
-    case "stuck": return who + (mine ? " are stuck." : " is stuck.");
-    case "win": return mine ? "You used all your cards. You win the round!" : who + " used all their cards and wins the round!";
-    case "end": return ev.why + " " + (ev.winner === -1 ? "It's a tie." : ev.winner === view.you ? "You have fewer cards. You win the round!" : nameOf(ev.winner) + " has fewer cards and wins the round.");
+    case "win":
+      if (ev.mode === "points") return mine ? "You reached " + view.target + " points. You win!" : who + " reached " + view.target + " points and wins!";
+      return mine ? "You used all your cards. You win the round!" : who + " used all their cards and wins the round!";
+    case "end": {
+      const more = ev.mode === "points" ? "more points" : "fewer cards";
+      return ev.why + " " + (ev.winner === -1 ? "It's a tie." : ev.winner === view.you ? "You have " + more + ". You win the round!" : nameOf(ev.winner) + " has " + more + " and wins the round.");
+    }
     default: return "";
   }
 }
+function scoreText() {
+  return view.mode === "points" ? "Score: " + nameOf(0) + " " + view.points[0] + ", " + nameOf(1) + " " + view.points[1] + ", playing to " + view.target + "." : "";
+}
 function turnText() {
   if (!view || view.status !== "playing") return "";
-  if (view.mode === "speed") return "Speed round. The word is " + view.word + ".";
   return view.turn === view.you ? "Your turn. The word is " + view.word + "." : nameOf(view.turn) + "'s turn.";
 }
 function say(text) {
@@ -468,15 +485,16 @@ function showMsg(text, kind) {
   const m = $("slam-msg"); m.textContent = text; m.className = "msg" + (kind ? " " + kind : "");
 }
 function eventSounds(ev) {
-  if (ev.t === "play") return ev.left === 1 ? ["flip", "last"] : ["flip"];
-  if (ev.t === "draw" || ev.t === "deal") return ["draw"];
+  if (ev.t === "play") return ev.left === 1 && view.mode !== "points" ? ["flip", "last"] : ["flip"];
+  if (ev.t === "draw" || ev.t === "deal" || ev.t === "refill") return ["draw"];
+  if (ev.t === "miss") return ["nope"];
   if (ev.t === "win") return [ev.s === view.you ? "win" : "lose"];
   if (ev.t === "end") return [ev.winner === view.you ? "win" : "lose"];
   return [];
 }
 
 // ---------- sending moves ----------
-const myMove = () => view && view.status === "playing" && view.you >= 0 && (view.mode === "speed" || view.turn === view.you);
+const myMove = () => view && view.status === "playing" && view.you >= 0 && view.turn === view.you;
 function act(action) {
   if (mode === "online") {
     if (!ws || ws.readyState !== 1) { say("Not connected right now. Trying to reconnect."); return; }
@@ -498,7 +516,7 @@ $("slam-form").addEventListener("submit", (e) => {
   if (!view || view.status !== "playing") return;
   if (!myMove()) { problem("Wait for your turn."); return; }
   const d = diff(view.word.split(""), w);
-  if (d.err) { problem(d.err); return; }
+  if (d.err) { problem(d.err); return; }   // a typo, not a word attempt: no turn lost
   if (!cardFor(view.hand, d.letter)) { problem("You don't have a card with " + d.letter + " on it."); return; }
   $("slam-input").value = "";
   showMsg("");
@@ -526,7 +544,8 @@ function renderSpots() {
       const next = word.slice(0, pos) + letter + word.slice(pos + 1);
       const b = document.createElement("button");
       b.type = "button"; b.className = "btn";
-      b.textContent = letter + " in spot " + (pos + 1) + ": " + next;
+      const used = view.used.includes(next);
+      b.textContent = letter + " in spot " + (pos + 1) + ": " + next + (used ? " (already played)" : view.mode === "points" ? " (" + wordValue(next) + " if it's a word)" : "");
       b.addEventListener("click", () => { closePicker(true); act({ t: "play", card: pickCard, letter, pos, from: word }); });
       box.append(b);
     }
@@ -607,7 +626,7 @@ function startPractice(m) {
   mode = "practice"; practiceMode = m; lastEvn = null;
   pst = newTable();
   pst.seats = [{ name: myName() || "You", token: "me" }, { name: "The computer", token: "cpu" }];
-  applyAction(pst, 0, { t: "deal", mode: m });
+  applyAction(pst, 0, { t: "deal", mode: m, target: Number($("target-select").value) || 100 });
   showGame();
   showPractice();
 }
@@ -616,15 +635,12 @@ function showPractice() {
   render();
   clearTimeout(cpuTimer);
   if (pst.status !== "playing") return;
-  const cpuGo = pst.mode === "speed" || pst.turn === 1;
-  if (!cpuGo) return;
+  if (pst.turn !== 1) return;
   cpuTimer = setTimeout(() => {
-    if (mode !== "practice" || pst.status !== "playing") return;
-    const a = cpuAction(pst, 1);
-    if (pst.mode === "speed" && a.t === "stuck" && pst.stuck[1]) return; // already said so; wait for the player
-    applyAction(pst, 1, a);
+    if (mode !== "practice" || pst.status !== "playing" || pst.turn !== 1) return;
+    applyAction(pst, 1, cpuAction(pst, 1));
     showPractice();
-  }, pst.mode === "speed" ? 6000 + Math.random() * 5000 : 2200);
+  }, 2200);
 }
 
 function showGame() {
@@ -671,10 +687,12 @@ function renderLobby() {
     box.append(label, st); seats.append(box);
   }
   const acts = $("lobby-actions"); acts.replaceChildren();
-  if (view.you >= 0 && view.present[0] && view.present[1] && view.status !== "playing") {
+  const canDeal = view.you >= 0 && view.present[0] && view.present[1] && view.status !== "playing";
+  $("target-field").hidden = !canDeal;
+  if (canDeal) {
     const again = view.status === "over";
     acts.append(button(again ? "Next round: take turns" : "Deal: take turns", () => act({ t: "deal", mode: "turns" }), "primary"));
-    acts.append(button(again ? "Next round: speed" : "Deal: speed round", () => act({ t: "deal", mode: "speed" }), "primary"));
+    acts.append(button(again ? "Next round: points game" : "Deal: points game", () => act({ t: "deal", mode: "points", target: Number($("target-select").value) || 100 }), "primary"));
   }
   acts.append(button(mode === "practice" ? "Leave practice" : "Leave game", leaveGame));
 }
@@ -690,7 +708,8 @@ function renderWord() {
     box.append(t);
   });
   lastWord = w;
-  $("word-text").textContent = "The word is " + w + ": " + spell(w) + ".";
+  $("word-text").textContent = "The word is " + w + ": " + spell(w) + "." + (view.mode === "points" ? " " + scoreText() : "");
+  $("used-text").textContent = "Already played this round: " + view.used.join(", ") + ".";
   const live = view.status === "playing";
   $("slam-form").hidden = !live || view.you < 0;
   $("slam-input").disabled = !live;
@@ -719,14 +738,13 @@ function renderHand() {
   if (view.status !== "playing" || view.you < 0) return;
   const mine = myMove();
   if (view.pile > 0) acts.append(button("Draw a card (" + view.pile + " left)", () => act({ t: "draw" }), "", !mine));
-  else if (view.mode === "turns") acts.append(button("Pass", () => act({ t: "pass" }), "", !mine));
-  else acts.append(button(view.stuck[view.you] ? "You're stuck. Waiting…" : "I'm stuck", () => act({ t: "stuck" }), "", view.stuck[view.you]));
+  else acts.append(button("Pass", () => act({ t: "pass" }), "", !mine));
 }
 function renderOpp() {
   const o = view.you >= 0 ? 1 - view.you : 1, n = view.counts[o];
   $("opp-h").textContent = nameOf(o);
   let t = nameOf(o) + " has " + n + (n === 1 ? " card. One card left!" : " cards.");
-  if (view.mode === "speed" && view.stuck[o]) t += " " + nameOf(o) + " is stuck.";
+  if (view.mode === "points") t += " " + nameOf(o) + (o === view.you ? " have " : " has ") + view.points[o] + " points.";
   if (mode === "online" && view.present[o] && !view.connected[o]) t += " Their connection dropped; the game waits for them.";
   $("opp-text").textContent = t;
   const box = $("opp-cards"); box.replaceChildren();
@@ -754,16 +772,16 @@ function render() {
   banner.replaceChildren();
   let text;
   if (view.you < 0) text = "This game already has two players. You can watch, but not play.";
-  else if (view.status === "waiting") text = view.present[0] && view.present[1] ? "Both players are here. Choose take turns or a speed round to deal." : "Waiting for your partner to join with code " + code + ".";
+  else if (view.status === "waiting") text = view.present[0] && view.present[1] ? "Both players are here. Choose a take turns game or a points game to deal." : "Waiting for your partner to join with code " + code + ".";
   else if (view.status === "over") text = (view.winner === -1 ? "It's a tie!" : view.winner === view.you ? "You win the round!" : nameOf(view.winner) + " wins the round!") + " Pick the next round when you're ready.";
   else {
-    text = turnText();
-    if (view.mode === "speed" || view.turn === view.you) banner.classList.add("mine");
+    text = turnText() + (view.mode === "points" ? " " + scoreText() : "");
+    if (view.turn === view.you) banner.classList.add("mine");
   }
   if (view.status === "playing") {
     const pill = document.createElement("span");
-    pill.className = "mode-pill" + (view.mode === "speed" ? " speed" : "");
-    pill.textContent = view.mode === "speed" ? "Speed round" : "Taking turns";
+    pill.className = "mode-pill" + (view.mode === "points" ? " speed" : "");
+    pill.textContent = view.mode === "points" ? "Points game to " + view.target : "Taking turns";
     pill.setAttribute("aria-hidden", "true");
     banner.append(pill, document.createElement("br"));
   }
@@ -781,12 +799,11 @@ function render() {
   } else if (view.evn > lastEvn) {
     const fresh = view.events.filter((e) => e.n > lastEvn).sort((a, b) => a.n - b.n);
     lastEvn = view.evn;
-    const mineOnly = fresh.every((e) => e.s === view.you && e.t === "play");
-    say((fresh.map(eventText).join(" ") + " " + (view.mode === "turns" || !mineOnly ? turnText() : "")).trim());
+    say((fresh.map(eventText).filter(Boolean).join(" ") + " " + turnText()).trim());
     if (fresh.some((e) => e.t === "play" && e.s === view.you)) showMsg("Nice! " + view.word + ".", "good");
     const sounds = [].concat(...fresh.map(eventSounds));
     const last = fresh[fresh.length - 1];
-    if (view.status === "playing" && view.mode === "turns" && view.turn === view.you && last && last.s !== view.you) sounds.push("turn");
+    if (view.status === "playing" && view.turn === view.you && last && last.s !== view.you) sounds.push("turn");
     playSounds(sounds);
   }
 }
@@ -797,7 +814,7 @@ $("create-btn").addEventListener("click", createRoom);
 $("join-btn").addEventListener("click", () => joinRoom($("code-input").value));
 $("code-input").addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom($("code-input").value); });
 $("practice-turns-btn").addEventListener("click", () => startPractice("turns"));
-$("practice-speed-btn").addEventListener("click", () => startPractice("speed"));
+$("practice-points-btn").addEventListener("click", () => startPractice("points"));
 const fromLink = location.hash.replace("#", "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 if (fromLink) {
   $("code-input").value = fromLink;
