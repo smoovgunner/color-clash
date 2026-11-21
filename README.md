@@ -7,7 +7,7 @@ button, every move is announced, sound effects, headings for each part of the ta
 Made by smoovgunner with Claude.
 
 ## How it runs
-- `public/` — the page (`index.html`) and the game rules (`game.js`).
+- `public/` — the EvenPlay home page, and one folder per game (its page and its rules).
 - `src/worker.js` — a Cloudflare Worker that hands out game codes, plus a Durable Object
   (`GameRoom`) per game that keeps the cards and sends each player only their own hand.
 
@@ -17,7 +17,8 @@ Made by smoovgunner with Claude.
     npx wrangler deploy     # publish
 
 ## Games
-- **Color Clash** (`/`) — match colors and numbers.
+- **EvenPlay home** (`/`) — lists every game.
+- **Color Clash** (`/color-clash/`) — match colors and numbers.
 - **Letter Flip** (`/letter-flip/`) — change one letter at a time to make a new four-letter word.
   Take-turns or speed rounds. Words come from the public-domain ENABLE word list.
 - **Rummy** (`/rummy/`) — basic two-player rummy: sets, runs, lay-offs, first to 100.

@@ -4,7 +4,7 @@
 //   Rummy:        GET /api/rm/new -> { code }, GET /api/rm/room/<CODE> -> WebSocket
 //   Deal Rush:    GET /api/dr/new -> { code }, GET /api/dr/room/<CODE> -> WebSocket
 import { DurableObject } from "cloudflare:workers";
-import * as colorClash from "../public/game.js";
+import * as colorClash from "../public/color-clash/game.js";
 import * as letterFlip from "../public/letter-flip/rules.js";
 import * as rummy from "../public/rummy/rules.js";
 import * as dealRush from "../public/deal-rush/rules.js";
