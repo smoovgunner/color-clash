@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dice Dash</title>
+<meta name="description" content="A five-dice scorecard game for two, made so blind and sighted players can play together.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bungee&display=swap">
+<style>
+/* Layout: one card table — opponent across the top, play area in the middle, your hand along the bottom. */
+:root {
+  color-scheme: dark;
+  --felt: #0f3b3a;
+  --felt-deep: #0a2a29;
+  --rail: #072120;
+  --ink: #f3efe6;
+  --ink-soft: #b9c9c4;
+  --gold: #f0b43a;
+  --red: #ff3b30;
+  --yellow: #ffd400;
+  --green: #18cf5c;
+  --blue: #1e7bff;
+  --black: #1b1d22;
+  --font-display: "Bungee", "Arial Black", Impact, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --card-w: 84px;
+  --card-h: 126px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at 50% 40%, var(--felt) 0%, var(--felt-deep) 75%) fixed, var(--felt-deep);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.45;
+}
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding-block: 18px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 18px;
+}
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(26px, 6vw, 38px); margin: 0; letter-spacing: 0.02em; }
+h1 .c1 { color: var(--red); } h1 .c2 { color: var(--yellow); } h1 .c3 { color: var(--green); } h1 .c4 { color: var(--blue); }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); margin: 0 0 8px; font-weight: 700; }
+.score { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.banner {
+  background: var(--rail);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 19px;
+  font-weight: 700;
+  border: 2px solid transparent;
+}
+.banner.mine { border-color: var(--gold); color: var(--gold); }
+.panel { background: rgba(0,0,0,0.18); border-radius: 18px; padding: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.muted { color: var(--ink-soft); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+button.btn {
+  font: 700 17px/1 var(--font-body);
+  padding: 13px 18px;
+  border-radius: 12px;
+  border: 2px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  min-height: 48px;
+}
+button.btn.small { min-height: 40px; padding: 8px 14px; font-size: 15px; }
+button.btn.primary { background: var(--gold); border-color: var(--gold); color: #1d1503; }
+button.btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+button:focus-visible, .card:focus-visible { outline: 4px solid #fff; outline-offset: 3px; }
+
+/* Cards */
+.card {
+  position: relative;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 10px;
+  border: 3px solid #f7f3ea;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.35), 0 6px 14px rgba(0,0,0,0.25);
+  color: #fff;
+  font-family: var(--font-display);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  flex: none;
+  overflow: hidden;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.3);
+}
+button.card { cursor: pointer; transition: transform 0.12s ease; }
+button.card:hover:not([aria-disabled="true"]) { transform: translateY(-6px); }
+button.card[aria-disabled="true"] { cursor: default; }
+/* On your turn: cards you can play lift up with a gold edge; the rest fade back. Off your turn every card stays full color. */
+button.card.can { transform: translateY(-8px); box-shadow: 0 0 0 4px var(--gold), 0 8px 18px rgba(0,0,0,0.35); }
+button.card.dim { opacity: 0.5; }
+.card.c-r { background: var(--red); }
+.card.c-y { background: var(--yellow); color: #2a1f00; text-shadow: none; }
+.card.c-g { background: var(--green); }
+.card.c-b { background: var(--blue); }
+.card.c-w { background: conic-gradient(var(--red) 0 25%, var(--yellow) 0 50%, var(--green) 0 75%, var(--blue) 0); }
+.card .band {
+  position: absolute; inset: 22% -20%;
+  background: rgba(255,255,255,0.13);
+  transform: rotate(-24deg);
+}
+.card.c-w .band { background: var(--black); inset: 30% -20%; }
+.card .mid { position: relative; font-size: calc(var(--card-w) * 0.5); line-height: 1; }
+.card .mid.small { font-size: calc(var(--card-w) * 0.3); }
+.card .corner { position: absolute; font-size: calc(var(--card-w) * 0.2); line-height: 1; }
+.card .corner.tl { top: 6px; left: 6px; }
+.card .corner.br { bottom: 6px; right: 6px; transform: rotate(180deg); }
+.card.big { --card-w: 132px; --card-h: 198px; border-width: 4px; }
+.card.back {
+  background: repeating-linear-gradient(45deg, #23262d 0 8px, #2d3139 8px 16px);
+  border-color: #f7f3ea;
+}
+.card.back .mid { font-size: calc(var(--card-w) * 0.24); color: var(--gold); }
+.card.selected { transform: translateY(-10px); }
+
+/* Table */
+.table-mid { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; justify-content: center; padding: 10px 0; }
+.pile { display: grid; justify-items: center; gap: 8px; }
+.pile-label { font-size: 14px; color: var(--ink-soft); text-align: center; }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-right: 6px; border: 2px solid #fff; }
+.opp-cards { display: flex; flex-wrap: wrap; gap: 0; padding-left: 20px; }
+.opp-cards .card { --card-w: 52px; --card-h: 78px; margin-left: -22px; border-width: 2px; }
+.hand { display: flex; flex-wrap: wrap; gap: 10px; }
+.seats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.seat { background: var(--rail); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+.seat strong { font-size: 19px; }
+ol.log { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+ol.log li { color: var(--ink-soft); }
+ol.log li:first-child { color: var(--ink); }
+details summary { cursor: pointer; font-weight: 700; }
+details ul { margin: 8px 0 0; padding-left: 22px; display: grid; gap: 4px; }
+
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: grid; place-items: center; z-index: 20;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.dialog { background: var(--rail); border-radius: 18px; padding: 20px; width: min(420px, 100%); display: grid; gap: 14px; border: 2px solid var(--gold); }
+.dialog h2 { font-size: 20px; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.choice { font: 700 18px var(--font-body); min-height: 64px; border-radius: 12px; border: 3px solid #fff; color: #fff; cursor: pointer; }
+.choice.r { background: var(--red); } .choice.y { background: var(--yellow); color: #2a1f00; } .choice.g { background: var(--green); } .choice.b { background: var(--blue); }
+
+@media (max-width: 520px) {
+  :root { --card-w: 72px; --card-h: 108px; }
+  .card.big { --card-w: 112px; --card-h: 168px; }
+  .hand { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<style>
+/* Dice Dash: the EvenPlay table with ivory dice and a scorecard. */
+:root { --die: #fffdf6; --pip: #1b1b1f; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+h1 .c11 { color: var(--paper, #fffdf6); } h1 .c12 { color: var(--gold); }
+.home { display: grid; gap: 16px; }
+.field { display: grid; gap: 6px; }
+.field label { font-weight: 700; }
+.field input { font: 700 20px var(--font-body); padding: 12px 14px; border-radius: 12px; border: 2px solid var(--ink-soft); background: var(--rail); color: var(--ink); min-height: 52px; width: 100%; }
+.field input:focus-visible { outline: 4px solid #fff; outline-offset: 2px; }
+.code-big { font-family: var(--font-display); font-size: clamp(30px, 9vw, 44px); letter-spacing: 0.06em; color: var(--gold); margin: 4px 0 6px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: #6b7d78; }
+.dot.on { background: #4fd18b; }
+footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
+.games { display: flex; gap: 14px; flex-wrap: wrap; font-size: 15px; }
+.games a { color: var(--gold); }
+
+/* dice */
+.dice { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; padding: 18px 0 8px; }
+.die {
+  width: clamp(54px, 15vw, 72px); aspect-ratio: 1; max-width: 100%; border-radius: 14px; background: var(--die); border: 3px solid #e8dfca;
+  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 9px; gap: 2px; cursor: pointer;
+  box-shadow: 0 4px 0 #b9ad90, 0 10px 18px rgba(0,0,0,0.3); transition: transform 0.12s ease;
+}
+.die i { border-radius: 50%; background: var(--pip); align-self: center; justify-self: center; width: 78%; aspect-ratio: 1; visibility: hidden; }
+.die.held { transform: translateY(-10px); border-color: var(--gold); box-shadow: 0 0 0 4px var(--gold), 0 10px 18px rgba(0,0,0,0.35); }
+.die.blank { background: rgba(255,255,255,0.12); border-style: dashed; border-color: rgba(255,255,255,0.35); box-shadow: none; cursor: default; }
+.die.rolling { animation: shake 0.35s ease; }
+@keyframes shake { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-12deg); } 75% { transform: rotate(10deg); } }
+.held-tag { text-align: center; font-size: 13px; color: var(--gold); font-weight: 700; min-height: 1.2em; }
+.die-wrap { display: grid; gap: 6px; justify-items: center; }
+
+/* scorecard */
+.card-wrap { overflow-x: auto; }
+table.sc { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; min-width: 300px; }
+.sc th, .sc td { padding: 8px 8px; border-bottom: 1px solid rgba(255,255,255,0.12); text-align: left; }
+.sc thead th { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); }
+.sc td.num { text-align: right; width: 32%; }
+.sc tr.sum th, .sc tr.sum td { font-weight: 700; color: var(--gold); border-bottom: 2px solid rgba(255,255,255,0.2); }
+.sc tr.total th, .sc tr.total td { font-size: 20px; }
+.sc .pick { min-height: 40px; padding: 6px 12px; font-size: 16px; border-radius: 10px; border: 2px solid var(--gold); background: transparent; color: var(--gold); font-weight: 700; cursor: pointer; }
+.sc .pick.zero { border-color: var(--ink-soft); color: var(--ink-soft); }
+.sc .muted { color: var(--ink-soft); }
+.msg { min-height: 1.4em; margin: 10px 0 0; font-weight: 700; color: var(--gold); }
+@media (prefers-reduced-motion: reduce) { .die.rolling { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="c11">Dice</span> <span class="c12">Dash</span></h1>
+    <div class="row"><div class="score" id="score"></div><button type="button" class="btn small" id="sound-btn" aria-pressed="true">Sound on</button></div>
+  </header>
+  <nav class="games" aria-label="EvenPlay games"><a href="/">All games</a> <span class="muted">More games:</span> <a href="/color-clash/">Color Clash</a> <a href="/letter-flip/">Letter Flip</a> <a href="/rummy/">Rummy</a> <a href="/deal-rush/">Deal Rush</a></nav>
+
+  <div id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <section id="home" class="panel home" aria-labelledby="home-h">
+    <h2 id="home-h">Play</h2>
+    <div class="field">
+      <label for="name-input">Your name</label>
+      <input id="name-input" type="text" autocomplete="nickname" maxlength="24" placeholder="Shown to the other player">
+    </div>
+    <div class="row"><button type="button" class="btn primary" id="create-btn">Create a new game</button></div>
+    <div class="field">
+      <label for="code-input">Game code from your partner</label>
+      <input id="code-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="16" placeholder="For example TIGER42">
+    </div>
+    <div class="row">
+      <button type="button" class="btn" id="join-btn">Join game</button>
+      <button type="button" class="btn" id="practice-btn">Practice against the computer</button>
+    </div>
+    <p class="muted" id="home-msg" style="margin:0"></p>
+  </section>
+
+  <div id="game" hidden>
+    <div style="display:grid; gap:18px">
+      <div class="banner" id="banner"></div>
+
+      <section id="room" class="panel" aria-labelledby="room-h">
+        <h2 id="room-h">Game code</h2>
+        <div class="code-big" id="room-code"></div>
+        <p class="muted" style="margin:0 0 12px">Share this code with your partner. They open this page, type the code, and join.</p>
+        <div class="row" id="room-actions"></div>
+      </section>
+
+      <section id="lobby" class="panel" aria-labelledby="lobby-h">
+        <h2 id="lobby-h">Players</h2>
+        <div class="seats" id="seats"></div>
+        <p id="result" style="margin:12px 0 0"></p>
+        <div class="row" style="margin-top:12px" id="lobby-actions"></div>
+      </section>
+
+      <section id="dice-panel" class="panel" hidden aria-labelledby="dice-h">
+        <h2 id="dice-h">Dice</h2>
+        <p id="dice-text" style="margin:0"></p>
+        <div class="dice" id="dice"></div>
+        <div class="row" id="dice-actions" style="justify-content:center"></div>
+        <p class="msg" id="msg" aria-live="polite"></p>
+      </section>
+
+      <section id="card-panel" class="panel" hidden aria-labelledby="card-h">
+        <h2 id="card-h">Scorecard</h2>
+        <div class="card-wrap"><table class="sc" id="sc"></table></div>
+      </section>
+
+      <section class="panel" id="log-panel" hidden aria-labelledby="log-h">
+        <h2 id="log-h">Recent moves</h2>
+        <ol class="log" id="log"></ol>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel" aria-labelledby="rules-h">
+    <details>
+      <summary id="rules-h">How to play</summary>
+      <ul>
+        <li>13 rounds. On your turn, roll the five dice up to 3 times. Between rolls, choose dice to hold; held dice don't change.</li>
+        <li>Then score your dice in one empty box on your scorecard. Every box gets filled once, even if it scores 0.</li>
+        <li>Ones to Sixes: add up the dice showing that number. If those six boxes total 63 or more, you get a 35-point bonus.</li>
+        <li>Three of a Kind and Four of a Kind: add up all five dice. Full House (three of one number, two of another): 25. Small Straight (four in a row): 30. Large Straight (five in a row): 40. Chance: add up all five dice.</li>
+        <li>Five of a Kind: 50. If you roll another one after scoring 50 there, you get 100 bonus points, and it counts as a Full House or Straight if you want.</li>
+        <li>After all 13 rounds, the highest total wins.</li>
+        <li>Screen reader tip: each die is a button; choose it to hold or let go. The scorecard is a table: open boxes show a button with the points you'd score.</li>
+      </ul>
+    </details>
+  </section>
+
+  <footer>Dice Dash, an EvenPlay game made by smoovgunner with Claude, so blind and sighted players can share a game.</footer>
+</div>
+
+<script type="module">
+import { BOXES, ROLLS, UPPER_BONUS_AT, UPPER_BONUS, scoreFor, jokerOn, totals, applyAction, viewFor, cpuAction, newTable } from "./rules.js";
+
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+let mode = "home";
+let view = null, code = null, ws = null, wsTries = 0, wsTimer = null, pingTimer = null, leaving = false;
+let pst = null, cpuTimer = null;
+let lastEvn = null, myHeld = [false, false, false, false, false], heldKey = "";
+
+// ---------- sound effects (made in the browser, no audio files) ----------
+  let soundOn = true, actx = null;
+  try { soundOn = localStorage.getItem("cc-sound") !== "off"; } catch (e) {}
+  function audio() {
+    if (!soundOn) return null;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      return actx;
+    } catch (e) { return null; }
+  }
+  function tone(ac, t, freq, dur, type, vol, slideTo) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(ac, t, dur, from, to, vol) {
+    const len = Math.max(1, Math.floor(ac.sampleRate * dur));
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const f = ac.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(from, t);
+    if (to) f.frequency.exponentialRampToValueAtTime(to, t + dur);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(vol || 0.5, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(ac.destination);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+  const SFX = {
+    play: (ac, t) => { noise(ac, t, 0.07, 2500, 1200, 0.7); tone(ac, t, 140, 0.09, "sine", 0.25, 70); },
+    draw: (ac, t) => { noise(ac, t, 0.22, 700, 3200, 0.45); },
+    skip: (ac, t) => { tone(ac, t, 660, 0.09, "square", 0.08); tone(ac, t + 0.1, 990, 0.12, "square", 0.08); },
+    plus: (ac, t) => { tone(ac, t, 520, 0.16, "sawtooth", 0.08, 390); tone(ac, t + 0.17, 390, 0.26, "sawtooth", 0.08, 260); },
+    wild: (ac, t) => { [523, 659, 784, 1047].forEach((f, i) => tone(ac, t + i * 0.07, f, 0.18, "triangle", 0.12)); },
+    turn: (ac, t) => { tone(ac, t, 659, 0.22, "sine", 0.16); tone(ac, t + 0.14, 880, 0.35, "sine", 0.16); },
+    last: (ac, t) => { tone(ac, t, 1320, 0.5, "sine", 0.14); tone(ac, t, 1980, 0.4, "sine", 0.05); },
+    win: (ac, t) => { [523, 659, 784].forEach((f, i) => tone(ac, t + i * 0.13, f, 0.16, "square", 0.08)); tone(ac, t + 0.42, 1047, 0.6, "square", 0.09); },
+    lose: (ac, t) => { [392, 370, 349].forEach((f, i) => tone(ac, t + i * 0.28, f, 0.26, "sawtooth", 0.07)); tone(ac, t + 0.84, 330, 0.7, "sawtooth", 0.07, 300); },
+  };
+  function playSounds(names) {
+    const ac = audio(); if (!ac) return;
+    let t = ac.currentTime + 0.03;
+    for (const n of names) { if (SFX[n]) { SFX[n](ac, t); t += n === "win" || n === "lose" ? 1.2 : 0.3; } }
+  }
+  function renderSoundBtn() {
+    const b = $("sound-btn");
+    b.textContent = soundOn ? "Sound on" : "Sound off";
+    b.setAttribute("aria-pressed", soundOn ? "true" : "false");
+  }
+  $("sound-btn").addEventListener("click", () => {
+    soundOn = !soundOn;
+    try { localStorage.setItem("cc-sound", soundOn ? "on" : "off"); } catch (e) {}
+    renderSoundBtn();
+    if (soundOn) playSounds(["turn"]);
+  });
+  renderSoundBtn();
+
+
+SFX.roll = (ac, t) => { for (let i = 0; i < 5; i++) noise(ac, t + i * 0.06, 0.05, 1800 + i * 300, 900, 0.45); };
+SFX.nope = (ac, t) => { tone(ac, t, 200, 0.18, "square", 0.07, 150); tone(ac, t + 0.2, 150, 0.25, "square", 0.07, 110); };
+SFX.coin = (ac, t) => { tone(ac, t, 988, 0.08, "square", 0.06); tone(ac, t + 0.08, 1319, 0.25, "square", 0.06); };
+
+// ---------- words ----------
+const myName = () => ($("name-input").value.trim() || store.get("cc-name") || "").slice(0, 24);
+function nameOf(seat) {
+  if (!view || seat == null || seat < 0) return "";
+  if (seat === view.you) return "You";
+  if (mode === "practice" && seat === 1) return "The computer";
+  return view.names[seat] || "Your partner";
+}
+const verb = (seat, you, them) => (seat === view.you ? you : them);
+const boxName = (id) => BOXES.find((b) => b.id === id).name;
+const diceWords = (d) => d.join(", ");
+function eventText(ev) {
+  const who = nameOf(ev.s), mine = ev.s === view.you;
+  switch (ev.t) {
+    case "deal": return "New game. " + who + verb(ev.s, " go first.", " goes first.") + (mine ? " Choose Roll the dice." : "");
+    case "roll": {
+      const kept = ev.dice.filter((v, i) => ev.held[i]);
+      return who + verb(ev.s, " rolled ", " rolled ") + diceWords(ev.dice) + "." + (kept.length && ev.rolls > 1 ? " Held " + diceWords(kept) + "." : "") + (mine && ev.rolls < ROLLS ? " " + (ROLLS - ev.rolls) + (ROLLS - ev.rolls === 1 ? " roll left." : " rolls left.") : mine ? " No rolls left. Choose a box to score." : "");
+    }
+    case "score": return who + verb(ev.s, " scored ", " scored ") + ev.pts + " in " + boxName(ev.box) + "." + (ev.bonus ? " Plus " + ev.bonus + " bonus points for another Five of a Kind!" : "") + " " + verb(ev.s, "Your", who + "'s") + " total: " + ev.total + ".";
+    case "turn": return (ev.s === view.you ? "Your turn" : who + "'s turn") + ", round " + ev.round + " of 13.";
+    case "end": return "Game over. " + nameOf(0) + " " + ev.totals[0] + ", " + nameOf(1) + " " + ev.totals[1] + ". " + (ev.winner === -1 ? "It's a tie!" : ev.winner === view.you ? "You win!" : nameOf(ev.winner) + " wins!");
+  }
+  return "";
+}
+function say(text) { const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
+function problem(text) { $("msg").textContent = text; say(text); playSounds(["nope"]); }
+function eventSounds(ev) {
+  if (ev.t === "roll") return ["roll"];
+  if (ev.t === "score") return ev.pts >= 40 || ev.bonus ? ["wild"] : ev.pts ? ["coin"] : ["play"];
+  if (ev.t === "end") return [ev.winner === view.you ? "win" : "lose"];
+  return [];
+}
+
+// ---------- moves ----------
+const myTurn = () => view && view.status === "playing" && view.turn === view.you;
+function act(action) {
+  if (mode === "online") {
+    if (!ws || ws.readyState !== 1) { say("Not connected right now. Trying to reconnect."); return; }
+    ws.send(JSON.stringify({ type: "act", action }));
+  } else if (mode === "practice") {
+    const err = applyAction(pst, 0, action);
+    if (err) { problem(err); return; }
+    showPractice();
+  }
+}
+function roll() {
+  if (!myTurn()) { problem("Wait for your turn."); return; }
+  if (view.rolls >= ROLLS) { problem("You've rolled 3 times. Choose a box on the scorecard."); return; }
+  act({ t: "roll", held: myHeld.slice() });
+}
+function toggleHold(i) {
+  if (!myTurn() || !view.rolls) { if (myTurn()) problem("Roll first, then choose dice to hold."); return; }
+  if (view.rolls >= ROLLS) { problem("No rolls left. Choose a box on the scorecard."); return; }
+  myHeld[i] = !myHeld[i];
+  renderDice();
+  const kept = view.dice.filter((v, k) => myHeld[k]);
+  say((myHeld[i] ? "Holding " : "Let go of ") + view.dice[i] + ". " + (kept.length ? "Holding " + diceWords(kept) + "." : "Holding nothing."));
+}
+
+// ---------- online / practice ----------
+function tokenFor(c) {
+  let t = store.get("dd-token-" + c);
+  if (!t) { const a = new Uint8Array(16); crypto.getRandomValues(a); t = [...a].map((x) => x.toString(16).padStart(2, "0")).join(""); store.set("dd-token-" + c, t); }
+  return t;
+}
+function connect() {
+  clearTimeout(wsTimer);
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  ws = new WebSocket(proto + "//" + location.host + "/api/dd/room/" + code);
+  ws.onopen = () => {
+    wsTries = 0;
+    ws.send(JSON.stringify({ type: "hello", token: tokenFor(code), name: myName() || "Player" }));
+    clearInterval(pingTimer);
+    pingTimer = setInterval(() => { try { ws.send('{"type":"ping"}'); } catch (e) {} }, 25000);
+  };
+  ws.onmessage = (e) => {
+    let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+    if (m.type === "state") { view = m.view; render(); }
+    else if (m.type === "error") problem(m.message);
+  };
+  ws.onclose = () => {
+    clearInterval(pingTimer);
+    if (leaving || mode !== "online") return;
+    $("banner").textContent = "Connection lost. Reconnecting…"; say("Connection lost. Reconnecting.");
+    wsTries++; wsTimer = setTimeout(connect, Math.min(1000 * wsTries, 8000));
+  };
+}
+function joinRoom(c) {
+  code = c.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (code.length < 3) { $("home-msg").textContent = "Type the game code your partner gave you, like TIGER42."; $("code-input").focus(); return; }
+  store.set("cc-name", myName());
+  mode = "online"; leaving = false; view = null; lastEvn = null;
+  history.replaceState(null, "", "#" + code);
+  showGame(); $("banner").textContent = "Joining game " + code + "…";
+  connect();
+}
+async function createRoom() {
+  $("home-msg").textContent = "Making a new game…";
+  try { const r = await fetch("/api/dd/new"); const { code: c } = await r.json(); joinRoom(c); }
+  catch (e) { $("home-msg").textContent = "Couldn't reach the game server. Check your internet connection and try again."; }
+}
+function leaveGame() {
+  leaving = true; clearTimeout(wsTimer); clearInterval(pingTimer); clearTimeout(cpuTimer);
+  if (ws && mode === "online") { try { ws.send('{"type":"leave"}'); ws.close(); } catch (e) {} }
+  ws = null; mode = "home"; view = null; pst = null;
+  history.replaceState(null, "", location.pathname);
+  $("game").hidden = true; $("home").hidden = false; $("score").textContent = ""; $("home-msg").textContent = "";
+  say("Left the game.");
+}
+function startPractice() {
+  store.set("cc-name", myName());
+  mode = "practice"; lastEvn = null;
+  pst = newTable();
+  pst.seats = [{ name: myName() || "You", token: "me" }, { name: "The computer", token: "cpu" }];
+  applyAction(pst, 0, { t: "deal" });
+  showGame(); showPractice();
+}
+function showPractice() {
+  view = viewFor(pst, 0, [true, true]);
+  render();
+  clearTimeout(cpuTimer);
+  if (pst.status === "playing" && pst.turn === 1) cpuTimer = setTimeout(() => {
+    if (mode !== "practice" || pst.status !== "playing" || pst.turn !== 1) return;
+    const a = cpuAction(pst, 1); if (a) applyAction(pst, 1, a);
+    showPractice();
+  }, 1600);
+}
+function showGame() { $("home").hidden = true; $("game").hidden = false; $("banner").setAttribute("tabindex", "-1"); $("banner").focus(); }
+
+// ---------- render ----------
+function button(label, onClick, cls, disabled, why) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "btn" + (cls ? " " + cls : ""); b.textContent = label;
+  if (disabled) b.setAttribute("aria-disabled", "true");
+  b.addEventListener("click", () => { if (b.getAttribute("aria-disabled") !== "true") onClick(); else if (why) problem(why); });
+  return b;
+}
+function renderRoom() {
+  $("room").hidden = mode !== "online";
+  if (mode !== "online") return;
+  $("room-code").textContent = code;
+  $("room-code").setAttribute("aria-label", "Game code: " + code.split("").join(" "));
+  const acts = $("room-actions"); acts.replaceChildren();
+  const link = location.origin + location.pathname + "#" + code;
+  if (navigator.share) acts.append(button("Send invite", async () => { try { await navigator.share({ title: "Dice Dash", text: "Play Dice Dash with me! Game code " + code, url: link }); } catch (e) {} }, "primary"));
+  acts.append(button("Copy invite link", async () => {
+    try { await navigator.clipboard.writeText(link); say("Invite link copied."); }
+    catch (e) { say("Couldn't copy. The game code is " + code.split("").join(" ") + "."); }
+  }));
+}
+function renderLobby() {
+  const seats = $("seats"); seats.replaceChildren();
+  for (let i = 0; i < 2; i++) {
+    const box = document.createElement("div"); box.className = "seat";
+    const label = document.createElement("strong");
+    const here = view.present[i], on = mode === "practice" || view.connected[i];
+    label.textContent = !here ? "Waiting for a player" : (i === view.you ? "You" : nameOf(i));
+    const st = document.createElement("span"); st.className = "muted";
+    if (here) {
+      const dot = document.createElement("span"); dot.className = "dot" + (on ? " on" : ""); dot.setAttribute("aria-hidden", "true");
+      st.append(dot, document.createTextNode(on ? "Connected" : "Not connected right now"));
+    } else st.textContent = "Open seat";
+    box.append(label, st); seats.append(box);
+  }
+  const end = view.events.find((e) => e.t === "end");
+  $("result").textContent = view.status === "over" && end ? eventText(end) : "";
+  const acts = $("lobby-actions"); acts.replaceChildren();
+  if (view.you >= 0 && view.present[0] && view.present[1] && view.status !== "playing")
+    acts.append(button(view.status === "over" ? "Play again" : "Start the game", () => act({ t: "deal" }), "primary"));
+  acts.append(button(mode === "practice" ? "Leave practice" : "Leave game", leaveGame));
+}
+const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+function renderDice(rolledNow) {
+  const box = $("dice");
+  const mine = myTurn();
+  // my holds reset at the start of each of my turns, and follow the server after each roll
+  const key = view.turn + ":" + view.round + ":" + view.rolls;
+  if (key !== heldKey) { myHeld = view.rolls ? view.held.slice() : [false, false, false, false, false]; heldKey = key; }
+  const held = mine ? myHeld : view.held;
+  const active = document.activeElement;
+  const focusedIdx = box.contains(active) ? Number(active.dataset.i) : -1;
+  box.replaceChildren();
+  view.dice.forEach((v, i) => {
+    const wrap = document.createElement("div"); wrap.className = "die-wrap";
+    const d = document.createElement("button"); d.type = "button"; d.dataset.i = i;
+    d.className = "die" + (v ? "" : " blank") + (held[i] && v ? " held" : "") + (rolledNow && v && !view.held[i] ? " rolling" : "");
+    for (let k = 0; k < 9; k++) { const p = document.createElement("i"); if (v && PIPS[v].includes(k)) p.style.visibility = "visible"; d.append(p); }
+    d.setAttribute("aria-label", v ? "Die " + (i + 1) + ": " + v + (held[i] ? ", held" : "") : "Die " + (i + 1) + ": not rolled yet");
+    d.addEventListener("click", () => toggleHold(i));
+    const tag = document.createElement("div"); tag.className = "held-tag"; tag.setAttribute("aria-hidden", "true"); tag.textContent = held[i] && v ? "HELD" : "";
+    wrap.append(d, tag); box.append(wrap);
+  });
+  if (focusedIdx >= 0) box.querySelector('[data-i="' + focusedIdx + '"]')?.focus();
+  const left = ROLLS - view.rolls;
+  $("dice-text").textContent = view.status !== "playing" ? "" : !view.rolls ? (mine ? "Your turn. Roll the dice." : nameOf(view.turn) + " is about to roll.")
+    : (mine ? "You have " : nameOf(view.turn) + " has ") + diceWords(view.dice) + ". " + (mine ? (left ? left + (left === 1 ? " roll left." : " rolls left.") : "No rolls left. Score a box.") : "");
+  const acts = $("dice-actions"); acts.replaceChildren();
+  if (view.status === "playing" && view.you >= 0) {
+    const label = !view.rolls ? "Roll the dice" : left ? "Roll again (" + left + " left)" : "No rolls left";
+    acts.append(button(label, roll, "primary", !mine || !left, !mine ? "Wait for your turn." : "No rolls left. Choose a box on the scorecard."));
+  }
+}
+function renderCard() {
+  const me = view.you >= 0 ? view.you : 0, them = 1 - me;
+  const t = $("sc"); t.replaceChildren();
+  const thead = document.createElement("thead");
+  thead.innerHTML = "<tr><th scope='col'>Box</th><th scope='col' class='num'></th><th scope='col' class='num'></th></tr>";
+  thead.querySelectorAll("th")[1].textContent = view.you >= 0 ? "You" : nameOf(0);
+  thead.querySelectorAll("th")[2].textContent = nameOf(them);
+  t.append(thead);
+  const tb = document.createElement("tbody");
+  const canScore = myTurn() && view.rolls > 0;
+  const joker = canScore && jokerOn(view.cards[me], view.dice);
+  const row = (label, a, b, cls) => {
+    const tr = document.createElement("tr"); if (cls) tr.className = cls;
+    const th = document.createElement("th"); th.scope = "row"; th.textContent = label;
+    const ca = document.createElement("td"); ca.className = "num";
+    const cb = document.createElement("td"); cb.className = "num";
+    if (a instanceof Node) ca.append(a); else ca.textContent = a;
+    if (b instanceof Node) cb.append(b); else cb.textContent = b;
+    tr.append(th, ca, cb); tb.append(tr);
+  };
+  const cell = (p, id) => {
+    const v = view.cards[p][id];
+    if (v !== undefined) return String(v);
+    if (p === me && canScore) {
+      const pts = scoreFor(id, view.dice, joker);
+      const b = document.createElement("button"); b.type = "button"; b.className = "pick" + (pts ? "" : " zero");
+      b.textContent = "Score " + pts;
+      b.setAttribute("aria-label", "Score " + pts + " in " + boxName(id));
+      b.addEventListener("click", () => act({ t: "score", box: id }));
+      return b;
+    }
+    const s = document.createElement("span"); s.className = "muted"; s.textContent = "–"; s.setAttribute("aria-label", "empty"); return s;
+  };
+  for (const b of BOXES.filter((x) => x.upper)) row(b.name, cell(me, b.id), cell(them, b.id));
+  const ta = totals(view.cards[me], view.bonus[me]), tt = totals(view.cards[them], view.bonus[them]);
+  row("Upper total (bonus at " + UPPER_BONUS_AT + ")", String(ta.upper), String(tt.upper), "sum");
+  row("Upper bonus", String(ta.upperBonus), String(tt.upperBonus), "sum");
+  for (const b of BOXES.filter((x) => !x.upper)) row(b.name, cell(me, b.id), cell(them, b.id));
+  row("Five of a Kind bonus", String(ta.fiveBonus), String(tt.fiveBonus), "sum");
+  row("Total", String(ta.total), String(tt.total), "sum total");
+  t.append(tb);
+  $("card-h").textContent = "Scorecard: " + (view.you >= 0 ? "you " + ta.total + ", " : "") + nameOf(them) + " " + tt.total;
+}
+function renderLog() {
+  const log = $("log"); log.replaceChildren();
+  for (const ev of view.events.slice(0, 8)) { const t = eventText(ev); if (!t) continue; const li = document.createElement("li"); li.textContent = t; log.append(li); }
+}
+function bannerText() {
+  if (view.you < 0) return "This game already has two players. You can watch, but not play.";
+  if (view.status === "waiting") return view.present[0] && view.present[1] ? "Both players are here. Start the game when you're ready." : "Waiting for your partner to join with code " + code + ".";
+  if (view.status === "over") { const e = view.events.find((x) => x.t === "end"); return e ? eventText(e) : "Game over."; }
+  if (!myTurn()) return nameOf(view.turn) + "'s turn. Round " + view.round + " of 13.";
+  return "Your turn. Round " + view.round + " of 13. " + (!view.rolls ? "Roll the dice." : view.rolls < ROLLS ? "Hold dice and roll again, or score a box." : "Score a box.");
+}
+function render() {
+  if (!view) return;
+  const playing = view.status === "playing" || view.status === "over";
+  renderRoom();
+  $("lobby").hidden = view.status === "playing";
+  for (const id of ["dice-panel", "card-panel", "log-panel"]) $(id).hidden = !playing;
+  renderLobby();
+  $("score").textContent = view.present[0] && view.present[1] ? "Games won: " + nameOf(0) + " " + view.wins[0] + ", " + nameOf(1) + " " + view.wins[1] : "";
+  const banner = $("banner");
+  banner.textContent = bannerText();
+  banner.classList.toggle("mine", myTurn());
+  $("msg").textContent = "";
+  let fresh = [];
+  if (lastEvn !== null && view.evn > lastEvn) fresh = view.events.filter((e) => e.n > lastEvn).sort((a, b) => a.n - b.n);
+  if (playing) { renderDice(fresh.some((e) => e.t === "roll")); renderCard(); renderLog(); }
+  if (lastEvn === null) { lastEvn = view.evn; say(banner.textContent); }
+  else if (fresh.length) {
+    lastEvn = view.evn;
+    say(fresh.map(eventText).filter(Boolean).join(" "));
+    const sounds = [].concat(...fresh.map(eventSounds));
+    if (fresh.some((e) => e.t === "turn" && e.s === view.you)) sounds.push("turn");
+    playSounds(sounds.slice(0, 3));
+  }
+}
+
+// ---------- home ----------
+$("name-input").value = store.get("cc-name") || "";
+$("create-btn").addEventListener("click", createRoom);
+$("join-btn").addEventListener("click", () => joinRoom($("code-input").value));
+$("code-input").addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom($("code-input").value); });
+$("practice-btn").addEventListener("click", startPractice);
+const fromLink = location.hash.replace("#", "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+if (fromLink) {
+  $("code-input").value = fromLink;
+  if (store.get("cc-name")) joinRoom(fromLink);
+  else $("home-msg").textContent = "You've been invited to game " + fromLink + ". Type your name, then choose Join game.";
+}
+</script>
+</body>
+</html>

@@ -23,3 +23,4 @@ Made by smoovgunner with Claude.
   Take-turns or speed rounds. Words come from the public-domain ENABLE word list.
 - **Rummy** (`/rummy/`) — basic two-player rummy: sets, runs, lay-offs, first to 100.
 - **Deal Rush** (`/deal-rush/`) — property-trading card game: collect 3 full sets of different colors.
+- **Dice Dash** (`/dice-dash/`) — five dice, three rolls, 13-box scorecard.
