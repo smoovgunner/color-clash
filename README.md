@@ -11,6 +11,12 @@ Made by smoovgunner with Claude.
 - `src/worker.js` — a Cloudflare Worker that hands out game codes, plus a Durable Object
   (`GameRoom`) per game that keeps the cards and sends each player only their own hand.
 
+## Leaderboards
+- `/leaderboards/` shows win streaks per game, against players and against the computer.
+- Games against the computer run on the server, so results can't be faked. A device's player code
+  (kept in the browser) identifies a player; the same code in both seats doesn't count.
+- Names pass a bad-word filter. `/admin/` (password only) removes a player from every board.
+
 ## Develop
     npm install
     npx wrangler dev        # http://localhost:8787

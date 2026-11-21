@@ -225,7 +225,7 @@ button.pc.selected { transform: translateY(-14px); box-shadow: 0 0 0 4px var(--g
     <h1><span class="c7">Rum</span><span class="c8">my</span></h1>
     <div class="row"><div class="score" id="score"></div><button type="button" class="btn small" id="sound-btn" aria-pressed="true">Sound on</button></div>
   </header>
-  <nav class="games" aria-label="EvenPlay games"><a href="/">All games</a> <span class="muted">More games:</span> <a href="/color-clash/">Color Clash</a> <a href="/letter-flip/">Letter Flip</a> <a href="/deal-rush/">Deal Rush</a> <a href="/dice-dash/">Dice Dash</a></nav>
+  <nav class="games" aria-label="EvenPlay games"><a href="/">All games</a> <a href="/leaderboards/">Leaderboards</a> <span class="muted">More games:</span> <a href="/color-clash/">Color Clash</a> <a href="/letter-flip/">Letter Flip</a> <a href="/deal-rush/">Deal Rush</a> <a href="/dice-dash/">Dice Dash</a></nav>
 
   <div id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
@@ -324,6 +324,18 @@ button.pc.selected { transform: translateY(-14px); box-shadow: 0 0 0 4px var(--g
 import { applyAction, viewFor, cpuAction, newTable, cardName, rankName, suitName, meldKind, fitsMeld, describeMeld, findMelds, handPoints } from "./rules.js";
 
 const $ = (id) => document.getElementById(id);
+let cpuGame = false, autoDeal = null;
+/** This device's EvenPlay player code: keeps your leaderboard streaks. */
+function playerCode() {
+  let c = null;
+  try { c = localStorage.getItem("ep-player"); } catch (e) {}
+  if (!/^[A-Z2-9]{12}$/.test(c || "")) {
+    const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", a = new Uint8Array(12); crypto.getRandomValues(a);
+    c = [...a].map((x) => A[x % 32]).join("");
+    try { localStorage.setItem("ep-player", c); } catch (e) {}
+  }
+  return c;
+}
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -471,7 +483,7 @@ function cardEl(c, tag, size) {
 // ---------- moves ----------
 const myTurn = () => view && view.status === "playing" && view.turn === view.you;
 function act(action) {
-  if (mode === "online") {
+  if (ws) {
     if (!ws || ws.readyState !== 1) { say("Not connected right now. Trying to reconnect."); return; }
     ws.send(JSON.stringify({ type: "act", action }));
   } else if (mode === "practice") {
@@ -520,21 +532,24 @@ function tokenFor(c) {
 function connect() {
   clearTimeout(wsTimer);
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  ws = new WebSocket(proto + "//" + location.host + "/api/rm/room/" + code);
+  ws = new WebSocket(proto + "//" + location.host + "/api/rm/room/" + code + (cpuGame ? "?cpu=1" : ""));
   ws.onopen = () => {
     wsTries = 0;
-    ws.send(JSON.stringify({ type: "hello", token: tokenFor(code), name: myName() || "Player" }));
+    ws.send(JSON.stringify({ type: "hello", token: tokenFor(code), name: myName() || "Player", player: playerCode() }));
     clearInterval(pingTimer);
     pingTimer = setInterval(() => { try { ws.send('{"type":"ping"}'); } catch (e) {} }, 25000);
   };
   ws.onmessage = (e) => {
     let m; try { m = JSON.parse(e.data); } catch (x) { return; }
-    if (m.type === "state") { view = m.view; render(); }
+    if (m.type === "state") {
+      view = m.view; render();
+      if (autoDeal && view.status === "waiting" && view.present[0] && view.present[1] && view.you === 0) { const a = autoDeal; autoDeal = null; act(a); }
+    }
     else if (m.type === "error") problem(m.message);
   };
   ws.onclose = () => {
     clearInterval(pingTimer);
-    if (leaving || mode !== "online") return;
+    if (leaving || mode === "home") return;
     $("banner").textContent = "Connection lost. Reconnecting…"; say("Connection lost. Reconnecting.");
     wsTries++; wsTimer = setTimeout(connect, Math.min(1000 * wsTries, 8000));
   };
@@ -555,7 +570,8 @@ async function createRoom() {
 }
 function leaveGame() {
   leaving = true; clearTimeout(wsTimer); clearInterval(pingTimer); clearTimeout(cpuTimer);
-  if (ws && mode === "online") { try { ws.send('{"type":"leave"}'); ws.close(); } catch (e) {} }
+  if (ws) { try { ws.send('{"type":"leave"}'); ws.close(); } catch (e) {} }
+  cpuGame = false; autoDeal = null;
   ws = null; mode = "home"; view = null; pst = null; selected.clear();
   history.replaceState(null, "", location.pathname);
   $("game").hidden = true; $("home").hidden = false; $("score").textContent = ""; $("home-msg").textContent = "";
@@ -563,7 +579,20 @@ function leaveGame() {
 }
 
 // ---------- practice ----------
-function startPractice() {
+// Practice games run on the game server, so wins against the computer count on the leaderboards.
+async function startPractice(m) {
+  store.set("cc-name", myName());
+  $("home-msg").textContent = "Setting up a game against the computer…";
+  try {
+    const r = await fetch("/api/rm/new");
+    const { code: c } = await r.json();
+    code = c; cpuGame = true; autoDeal = { t: "deal" };
+    mode = "practice"; leaving = false; view = null; lastEvn = null;
+    showGame(); $("banner").textContent = "Setting up your game…";
+    connect();
+  } catch (e) { $("home-msg").textContent = "Couldn't reach the game server. Check your internet connection and try again."; }
+}
+function startLocalPractice(m) {
   store.set("cc-name", myName());
   mode = "practice"; lastEvn = null; selected.clear();
   pst = newTable();

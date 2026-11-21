@@ -26,9 +26,34 @@ function makeCode() {
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
+// Leaderboard games and their short names.
+const GAMES = { cc: "Color Clash", lf: "Letter Flip", rm: "Rummy", dr: "Deal Rush", dd: "Dice Dash" };
+// SHA-256 of the admin password. The password itself is never stored here.
+const ADMIN_HASH = "5ca2cc9864014fa43bdc0fcb376d6851c68bc8dbf0226dc5b9d1ba86afeea571";
+const PLAYER_RE = /^[A-Z2-9]{12}$/;
+
+// Names shown on the leaderboards: no slurs or crude words. Letters that stand in for others (0 for o, 1 for i, $ for s) are read as those letters.
+const BAD = ["fuck", "shit", "bitch", "cunt", "dick", "cock", "pussy", "asshole", "bastard", "whore", "slut", "nigg", "nigga", "fag", "retard",
+  "rape", "porn", "penis", "vagina", "boob", "tits", "cum", "jizz", "dildo", "anal", "nazi", "hitler", "kkk", "chink", "spic", "kike", "wetback",
+  "tranny", "twat", "wank", "prick", "douche", "motherf", "hoe", "pedo", "molest", "kill yourself", "kys"];
+export function cleanName(raw) {
+  let name = String(raw || "").replace(/[\u0000-\u001f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 24);
+  const flat = name.toLowerCase().replace(/0/g, "o").replace(/[1!|]/g, "i").replace(/3/g, "e").replace(/4|@/g, "a").replace(/5|\$/g, "s").replace(/7/g, "t").replace(/[^a-z ]/g, "");
+  const squashed = flat.replace(/ /g, "");
+  if (BAD.some((w) => flat.includes(w) || squashed.includes(w.replace(/ /g, "")))) return "Player";
+  return name || "Player";
+}
+async function sha256(text) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+    if (url.pathname.startsWith("/api/board") || url.pathname.startsWith("/api/admin")) {
+      return env.BOARD.get(env.BOARD.idFromName("main")).fetch(req);
+    }
     if (/^\/api\/((lf|rm|dr|dd)\/)?new$/.test(url.pathname)) return json({ code: makeCode() });
     const m = url.pathname.match(/^\/api\/(?:(lf|rm|dr|dd)\/)?room\/([A-Z0-9]{3,16})$/);
     if (m) {
@@ -41,9 +66,10 @@ export default {
 };
 
 class Room extends DurableObject {
-  constructor(ctx, env, rules) {
+  constructor(ctx, env, rules, game) {
     super(ctx, env);
     this.rules = rules;
+    this.game = game;
     this.st = null;
     ctx.blockConcurrencyWhile(async () => {
       this.st = (await ctx.storage.get("st")) || null;
@@ -51,7 +77,14 @@ class Room extends DurableObject {
   }
 
   async fetch(req) {
-    const code = new URL(req.url).pathname.split("/").pop();
+    const u = new URL(req.url);
+    const code = u.pathname.split("/").pop();
+    // A computer game: the first visitor of an empty room asks for the computer to sit in seat 2.
+    if (u.searchParams.get("cpu") === "1" && !this.st) {
+      this.st = { ...this.rules.newTable(), cpu: true };
+      this.st.seats[1] = { token: "cpu", name: "The computer", player: null };
+      await this.save();
+    }
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server);
@@ -96,14 +129,15 @@ class Room extends DurableObject {
 
     if (m.type === "hello") {
       const token = String(m.token || "").slice(0, 64);
-      const name = String(m.name || "").trim().slice(0, 24) || "Player";
+      const name = cleanName(m.name);
+      const player = PLAYER_RE.test(String(m.player || "")) ? m.player : null;
       if (!this.st) this.st = { ...this.rules.newTable() };
       let seat = this.st.seats.findIndex((p) => p && p.token === token);
-      if (seat < 0 && token) {
+      if (seat < 0 && token && token !== "cpu") {
         seat = this.st.seats.findIndex((p) => !p);
-        if (seat >= 0) this.st.seats[seat] = { token, name };
+        if (seat >= 0) this.st.seats[seat] = { token, name, player };
       }
-      if (seat >= 0) this.st.seats[seat].name = name;
+      if (seat >= 0) { this.st.seats[seat].name = name; if (player) this.st.seats[seat].player = player; }
       ws.serializeAttachment({ seat, token, code: att.code });
       await this.save();
       this.broadcast();
@@ -114,12 +148,13 @@ class Room extends DurableObject {
       if (!this.st) return;
       const err = this.rules.applyAction(this.st, att.seat, m.action);
       if (err) { ws.send(JSON.stringify({ type: "error", message: err })); return; }
-      await this.save();
-      this.broadcast();
+      await this.afterMove();
       return;
     }
 
     if (m.type === "leave") {
+      // Leaving a game in progress counts as a loss on the leaderboards.
+      if (this.st && att.seat >= 0 && this.st.status === "playing") await this.report(1 - att.seat, "left");
       if (this.st && att.seat >= 0) {
         this.st.seats[att.seat] = null;
         this.st.status = "waiting";
@@ -130,6 +165,57 @@ class Room extends DurableObject {
       try { ws.close(1000, "left"); } catch (e) {}
       this.broadcast();
     }
+  }
+
+  /** Save, tell everyone, record finished games, and let the computer move if it's its turn. */
+  async afterMove() {
+    const st = this.st;
+    if (st.status === "playing") st.reported = false;
+    const final = st.status === "over" && !st.reported && (this.rules === rummy ? st.matchOver : true);
+    if (final) { st.reported = true; await this.report(st.winner, "end"); }
+    await this.save();
+    this.broadcast();
+    this.scheduleCpu();
+  }
+
+  cpuTurn() {
+    const st = this.st;
+    if (!st || !st.cpu || st.status !== "playing") return false;
+    const p = st.pending;
+    if (p) return p.kind === "pay" ? p.payer === 1 : p.waiting === 1;
+    return st.turn === 1;
+  }
+
+  scheduleCpu() {
+    if (!this.cpuTurn() || this.cpuTimer) return;
+    const wait = this.rules === letterFlip ? 2200 : this.rules === dealRush ? 1700 : 1500;
+    this.cpuTimer = setTimeout(async () => {
+      this.cpuTimer = null;
+      if (!this.cpuTurn()) return;
+      const a = this.rules.cpuAction(this.st, 1);
+      if (!a || this.rules.applyAction(this.st, 1, a)) return; // nothing sensible to do: wait for the player
+      await this.afterMove();
+    }, wait);
+  }
+
+  /** Send a finished game to the leaderboards. winner: seat number, or -1 for a tie. */
+  async report(winner, how) {
+    const st = this.st;
+    if (!this.game || winner == null) return;
+    const seats = st.seats;
+    try {
+      const board = this.env.BOARD.get(this.env.BOARD.idFromName("main"));
+      if (st.cpu) {
+        const me = seats[0];
+        if (!me || !me.player) return;
+        await board.fetch("https://board/record", { method: "POST", body: JSON.stringify({ game: this.game, mode: "cpu", results: [{ player: me.player, name: me.name, r: winner === -1 ? "tie" : winner === 0 ? "win" : "loss" }] }) });
+      } else {
+        const [a, b] = seats;
+        if (!a || !b || !a.player || !b.player || a.player === b.player) return; // playing yourself doesn't count
+        const res = (i) => (winner === -1 ? "tie" : winner === i ? "win" : "loss");
+        await board.fetch("https://board/record", { method: "POST", body: JSON.stringify({ game: this.game, mode: "pvp", results: [{ player: a.player, name: a.name, r: res(0) }, { player: b.player, name: b.name, r: res(1) }] }) });
+      }
+    } catch (e) { /* the leaderboard is never allowed to break a game */ }
   }
 
   async webSocketClose(ws) {
@@ -150,17 +236,88 @@ class Room extends DurableObject {
 }
 
 export class GameRoom extends Room {
-  constructor(ctx, env) { super(ctx, env, colorClash); }
+  constructor(ctx, env) { super(ctx, env, colorClash, "cc"); }
 }
 export class LetterRoom extends Room {
-  constructor(ctx, env) { super(ctx, env, letterFlip); }
+  constructor(ctx, env) { super(ctx, env, letterFlip, "lf"); }
 }
 export class RummyRoom extends Room {
-  constructor(ctx, env) { super(ctx, env, rummy); }
+  constructor(ctx, env) { super(ctx, env, rummy, "rm"); }
 }
 export class DealRoom extends Room {
-  constructor(ctx, env) { super(ctx, env, dealRush); }
+  constructor(ctx, env) { super(ctx, env, dealRush, "dr"); }
 }
 export class DiceRoom extends Room {
-  constructor(ctx, env) { super(ctx, env, diceDash); }
+  constructor(ctx, env) { super(ctx, env, diceDash, "dd"); }
+}
+
+// ---------------- leaderboards ----------------
+// One record per player per game per mode ("pvp" or "cpu"):  e:<game>:<mode>:<player> -> {name, cur, best, wins, losses, t}
+// Removed players: ban:<player>
+export class Board extends DurableObject {
+  async fetch(req) {
+    const url = new URL(req.url);
+    const S = this.ctx.storage;
+    const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+
+    if (url.pathname === "/record" && req.method === "POST") {
+      const { game, mode, results } = await req.json();
+      if (!GAMES[game] || !["pvp", "cpu"].includes(mode)) return json({ ok: false });
+      for (const x of results || []) {
+        if (!PLAYER_RE.test(x.player) || (await S.get("ban:" + x.player))) continue;
+        const key = "e:" + game + ":" + mode + ":" + x.player;
+        const e = (await S.get(key)) || { cur: 0, best: 0, wins: 0, losses: 0 };
+        e.name = cleanName(x.name);
+        if (x.r === "win") { e.cur += 1; e.wins += 1; e.best = Math.max(e.best, e.cur); }
+        else if (x.r === "loss") { e.cur = 0; e.losses += 1; }
+        e.t = Date.now();
+        await S.put(key, e);
+      }
+      return json({ ok: true });
+    }
+
+    if (url.pathname === "/api/board") {
+      const game = url.searchParams.get("game");
+      if (!GAMES[game]) return json({ games: GAMES });
+      const top = async (mode) => {
+        const all = await S.list({ prefix: "e:" + game + ":" + mode + ":" });
+        return [...all.values()].filter((e) => e.wins > 0)
+          .sort((a, b) => b.best - a.best || b.cur - a.cur || b.wins - a.wins || a.t - b.t)
+          .slice(0, 25).map(({ name, cur, best, wins, losses }) => ({ name, cur, best, wins, losses }));
+      };
+      return json({ game, title: GAMES[game], pvp: await top("pvp"), cpu: await top("cpu") });
+    }
+
+    if (url.pathname === "/api/board/me") {
+      const player = url.searchParams.get("player");
+      if (!PLAYER_RE.test(player || "")) return json({ error: "That isn't a player code." }, 400);
+      const out = {};
+      for (const g of Object.keys(GAMES)) for (const mode of ["pvp", "cpu"]) {
+        const e = await S.get("e:" + g + ":" + mode + ":" + player);
+        if (e) (out[g] = out[g] || {})[mode] = { cur: e.cur, best: e.best, wins: e.wins, losses: e.losses, name: e.name };
+      }
+      return json({ stats: out });
+    }
+
+    if (url.pathname === "/api/admin" && req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      if ((await sha256(String(body.password || ""))) !== ADMIN_HASH) return json({ error: "Wrong password." }, 403);
+      if (body.action === "list") {
+        const all = await S.list({ prefix: "e:" });
+        const rows = [];
+        for (const [k, e] of all) { const [, game, mode, player] = k.split(":"); rows.push({ game, mode, player, name: e.name, best: e.best, cur: e.cur, wins: e.wins }); }
+        const bans = [...(await S.list({ prefix: "ban:" })).keys()].map((k) => k.slice(4));
+        return json({ rows, bans });
+      }
+      if (body.action === "remove" && PLAYER_RE.test(body.player || "")) {
+        const keys = [...(await S.list({ prefix: "e:" })).keys()].filter((k) => k.endsWith(":" + body.player));
+        await S.delete(keys);
+        await S.put("ban:" + body.player, { t: Date.now() });
+        return json({ ok: true, removed: keys.length });
+      }
+      if (body.action === "unban" && PLAYER_RE.test(body.player || "")) { await S.delete("ban:" + body.player); return json({ ok: true }); }
+      return json({ error: "Unknown action." }, 400);
+    }
+    return json({ error: "Not found" }, 404);
+  }
 }
