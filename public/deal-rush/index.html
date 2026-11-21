@@ -203,14 +203,16 @@ button.dc.selected { transform: translateY(-12px); box-shadow: 0 0 0 4px var(--g
 .dc .title { padding: 5px 6px 0; font-size: 12px; }
 .dc .big { font-family: var(--font-display); font-size: calc(var(--w) * 0.3); padding: 0 6px; align-self: center; }
 .dc .val { position: absolute; top: 4px; right: 5px; background: rgba(255,255,255,0.92); color: #1b1b1f; border-radius: 999px; padding: 1px 6px; font-size: 11px; }
-.dc .foot { padding: 0 6px 6px; font-size: 10px; color: #55555e; font-weight: 400; }
+.dc .foot { padding: 0 6px 6px; font-size: 11px; color: #44444c; font-weight: 700; }
 .dc.money { background: var(--money); }
 .dc.money .big { color: #1f5b2a; }
 .dc.action .band { background: var(--action); }
 .dc.rent .title, .dc.action .title { font-size: 13px; }
 .dc.mini { --w: 52px; border-width: 1px; }
 .dc.mini .title, .dc.mini .foot { display: none; }
-.dc.mini .band { height: 100%; }
+.dc.mini { display: block; }
+.dc.mini .band { position: absolute; inset: 0; height: auto; }
+.dc.mini .big { display: none; }
 .dc.mini .val { font-size: 9px; padding: 0 4px; }
 .dc.back { background: repeating-linear-gradient(45deg, #23262d 0 8px, #2d3139 8px 16px); border-color: #f7f3ea; }
 .dc.back .band { display: none; }
@@ -432,6 +434,8 @@ const your = (seat) => (seat === view.you ? "your" : nameOf(seat) + "'s");
 const verb = (seat, you, them) => (seat === view.you ? you : them);
 const M = (n) => n + " million";
 const cname = (id) => cardName(id);
+// a card used as money: say what it was worth when it isn't plain money or a property
+const payName = (id) => (CARDS[id].kind === "money" || CARDS[id].kind === "prop" || CARDS[id].kind === "wild" ? cname(id) : cname(id) + " (" + M(CARDS[id].value) + ")");
 const colorName = (c) => COLORS[c].name;
 function describeSet(s) {
   const size = COLORS[s.color].size;
@@ -466,7 +470,7 @@ function eventText(ev) {
     case "accept": return ev.blocked ? "Blocked! The move doesn't happen." : "";
     case "paid":
       if (ev.broke) return who + verb(ev.s, " have", " has") + " nothing to pay with, so nothing is paid.";
-      return who + verb(ev.s, " paid ", " paid ") + (ev.to === view.you ? "you " : nameOf(ev.to) + " ") + M(ev.total) + (ev.cards.length ? ": " + ev.cards.map(cname).join(", ") : "") + "." + (ev.total < ev.amount ? " That's everything " + verb(ev.s, "you", "they") + " had." : "");
+      return who + verb(ev.s, " paid ", " paid ") + (ev.to === view.you ? "you " : nameOf(ev.to) + " ") + M(ev.total) + (ev.cards.length ? ": " + ev.cards.map(payName).join(", ") : "") + "." + (ev.total < ev.amount ? " That's everything " + verb(ev.s, "you", "they") + " had." : "");
     case "swiped": return who + verb(ev.s, " took ", " took ") + "the " + cname(ev.card) + ".";
     case "swapped": return "Swap done.";
     case "stole": return who + verb(ev.s, " took ", " took ") + "the whole " + colorName(ev.color) + " set!";
@@ -496,6 +500,8 @@ function eventSounds(ev) {
 
 // ---------- card pictures ----------
 const cssColor = (c) => "var(--c-" + c + ")";
+const SHORT = { steal: "Take a full set", noway: "Block an action", swipe: "Take 1 property", swap: "Trade 1 for 1", debt: "Get 5M",
+  party: "Get 2M", bonus: "Draw 2 cards", double: "Rent times 2", house: "+3M rent", hotel: "+4M rent" };
 function cardEl(id, tag, size) {
   const c = CARDS[id];
   const el = document.createElement(tag || "div");
@@ -511,7 +517,7 @@ function cardEl(id, tag, size) {
   else if (c.kind === "prop") { title.textContent = COLORS[c.color].name; foot.textContent = "Rent " + COLORS[c.color].rent.join(" / "); }
   else if (c.kind === "wild") { title.textContent = "Wild: " + (c.colors === "any" ? "any color" : c.colors.map((x) => COLORS[x].name).join(" / ")); }
   else if (c.kind === "rent") { title.textContent = "RENT"; foot.textContent = c.colors === "any" ? "Any color" : c.colors.map((x) => COLORS[x].name).join(" / "); }
-  else { title.textContent = ACTIONS[c.act].name; foot.textContent = ACTIONS[c.act].text; }
+  else { title.textContent = ACTIONS[c.act].name; foot.textContent = SHORT[c.act]; }
   const val = document.createElement("span"); val.className = "val"; val.textContent = c.value + "M";
   el.append(title, big, foot, val);
   return el;
@@ -658,10 +664,10 @@ function pendingDialog() {
     const auto = autoPay(fake, me, p.amount);
     const autoTotal = auto.reduce((n, id) => n + payValue(id), 0);
     const chosen = [...paySel].reduce((n, id) => n + payValue(id), 0);
-    const opts = [{ label: "Pay automatically: " + auto.map(cname).join(", ") + " (" + M(autoTotal) + ")", primary: true, fn: () => { closeDialog(); act({ t: "pay", auto: true }); } }];
+    const opts = [{ label: "Pay automatically: " + auto.map(payName).join(", ") + " (" + M(autoTotal) + ")", primary: true, fn: () => { closeDialog(); act({ t: "pay", auto: true }); } }];
     for (const o of owned) {
       const v = payValue(o.id);
-      opts.push({ label: cname(o.id) + ", from your " + o.where + (v ? "" : ", worth nothing"), pressed: paySel.has(o.id), disabled: !v, why: "That wild card is worth nothing as payment.",
+      opts.push({ label: payName(o.id) + ", from your " + o.where + (v ? "" : ", worth nothing"), pressed: paySel.has(o.id), disabled: !v, why: "That wild card is worth nothing as payment.",
         fn: () => { paySel.has(o.id) ? paySel.delete(o.id) : paySel.add(o.id); dlgKey = null; pendingDialog(); say((paySel.has(o.id) ? "Chosen. " : "Removed. ") + "Total " + M([...paySel].reduce((n, id) => n + payValue(id), 0)) + "."); } });
     }
     const why = { rent: "rent", debt: "Collect Debt", party: "Party Time" }[p.why];
