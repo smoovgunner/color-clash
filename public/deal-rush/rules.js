@@ -30,6 +30,8 @@ export const ACTIONS = {
 export const HAND_LIMIT = 7;
 export const PLAYS = 3;
 export const SETS_TO_WIN = 3;
+export const BANK_TARGETS = [0, 30, 50, 75];   // 0 = no bank win
+export const GRACE_TURNS = 3;                  // bankruptcy can't happen during a player's first 3 turns
 
 // ---- the deck: 106 cards ----
 const DEFS = [];
@@ -143,19 +145,28 @@ function draw(st, p, n) {
 }
 function startTurn(st, p) {
   st.turn = p; st.plays = 0; st.phase = "play"; st.pending = null;
+  st.turnsTaken[p] = (st.turnsTaken[p] || 0) + 1;
   const n = st.hands[p].length ? 2 : 5;
   const got = draw(st, p, n);
   addEvent(st, { t: "turn", s: p, cards: got });
 }
+export const bankOf = (st, p) => st.banks[p].reduce((n, id) => n + CARDS[id].value, 0);
+function gameOver(st, p, ev) {
+  st.status = "over"; st.winner = p; st.wins[p] += 1; st.pending = null;
+  addEvent(st, { t: "win", s: p, ...ev });
+}
 function checkWin(st) {
   for (const p of [st.turn, 1 - st.turn]) {
-    if (fullColors(st.tables[p]).size >= SETS_TO_WIN) {
-      st.status = "over"; st.winner = p; st.wins[p] += 1; st.pending = null;
-      addEvent(st, { t: "win", s: p, sets: [...fullColors(st.tables[p])] });
-      return true;
-    }
+    if (fullColors(st.tables[p]).size >= SETS_TO_WIN) { gameOver(st, p, { why: "sets", sets: [...fullColors(st.tables[p])] }); return true; }
+    if (st.opts.bankWin && bankOf(st, p) >= st.opts.bankWin) { gameOver(st, p, { why: "bank", bank: bankOf(st, p) }); return true; }
   }
   return false;
+}
+/** Bankruptcy: a player who couldn't pay in full loses, once their first turns are over. */
+function bankrupt(st, payer, payee) {
+  if (!st.opts.bankrupt || (st.turnsTaken[payer] || 0) <= GRACE_TURNS) return false;
+  gameOver(st, payee, { why: "bankrupt", loser: payer });
+  return true;
 }
 
 export function newTable() {
@@ -201,6 +212,7 @@ function payNow(st, payer, payee, cards, amount, why) {
   const total = moved.reduce((n, id) => n + payValue(id), 0);
   addEvent(st, { t: "paid", s: payer, to: payee, cards: moved, total, amount, why });
   st.pending = null;
+  if (total < amount && bankrupt(st, payer, payee)) return;
   checkWin(st);
 }
 
@@ -208,6 +220,7 @@ function startPayment(st, payer, payee, amount, why) {
   if (worth(st, payer) === 0) {
     addEvent(st, { t: "paid", s: payer, to: payee, cards: [], total: 0, amount, why, broke: true });
     st.pending = null;
+    bankrupt(st, payer, payee);
     return;
   }
   st.pending = { kind: "pay", payer, payee, amount, why };
@@ -258,11 +271,13 @@ export function applyAction(st, seat, action) {
     if (!st.seats[0] || !st.seats[1]) return "Both players need to be here before dealing.";
     if (st.status === "playing") return "A game is already in progress.";
     const deck = shuffle(Object.keys(CARDS));
+    const bankWin = BANK_TARGETS.includes(Number(action.bankWin)) ? Number(action.bankWin) : 0;
     Object.assign(st, { status: "playing", deck, discard: [], hands: [deck.splice(0, 5), deck.splice(0, 5)],
-      banks: [[], []], tables: [[], []], setSeq: 0, pending: null, winner: null });
+      banks: [[], []], tables: [[], []], setSeq: 0, pending: null, winner: null, turnsTaken: [0, 0],
+      opts: { bankWin, bankrupt: !!action.bankrupt } });
     const starter = st.nextStarter ?? 0;
     st.nextStarter = 1 - starter;
-    addEvent(st, { t: "deal", s: starter });
+    addEvent(st, { t: "deal", s: starter, opts: { ...st.opts } });
     startTurn(st, starter);
     return null;
   }
@@ -322,6 +337,8 @@ export function applyAction(st, seat, action) {
   }
 
   if (t === "move") {
+    return "Wild cards stay the color you played them as.";
+    // eslint-disable-next-line no-unreachable
     const id = action.card, color = action.color;
     const set = findSetOf(st.tables[seat], id);
     if (!set || CARDS[id].kind !== "wild") return "Only wild properties on your table can be moved.";
@@ -345,6 +362,7 @@ export function applyAction(st, seat, action) {
     if (isProp(id)) return "Properties can't go in the bank. Play them on your table.";
     use(); st.banks[seat].push(id);
     addEvent(st, { t: "bank", s: seat, card: id });
+    checkWin(st);
     return null;
   }
   if (t === "property") {
@@ -444,6 +462,9 @@ export function viewFor(st, seat, connected) {
     tables: playing ? st.tables.map((tb) => tb.map((s) => ({ ...s, cards: s.cards.slice() }))) : [[], []],
     turn: playing ? st.turn : null,
     plays: playing ? st.plays : 0,
+    opts: st.opts ? { ...st.opts } : { bankWin: 0, bankrupt: false },
+    turnsTaken: playing && st.turnsTaken ? st.turnsTaken.slice() : [0, 0],
+    graceTurns: GRACE_TURNS,
     phase: playing ? st.phase : null,
     pending: P ? JSON.parse(JSON.stringify(P)) : null,
     winner: st.winner ?? null,

@@ -275,6 +275,17 @@ button.dc.selected { transform: translateY(-12px); box-shadow: 0 0 0 4px var(--g
         <h2 id="lobby-h">Players</h2>
         <div class="seats" id="seats"></div>
         <p id="result" style="margin:12px 0 0"></p>
+        <fieldset id="opts" hidden style="border:2px solid var(--ink-soft); border-radius:12px; padding:12px 14px; margin:12px 0 0; display:grid; gap:12px">
+          <legend style="font-weight:700; padding:0 6px">Game options</legend>
+          <div class="field" style="max-width:280px">
+            <label for="bank-select">Bank win: first to bank this much wins</label>
+            <select id="bank-select" style="font:700 18px var(--font-body); padding:10px; border-radius:12px; background:var(--rail); color:var(--ink); border:2px solid var(--ink-soft); min-height:48px">
+              <option value="0">Off</option><option value="30">30 million</option><option value="50">50 million</option><option value="75">75 million</option>
+            </select>
+          </div>
+          <label style="display:flex; gap:10px; align-items:center; font-weight:700; min-height:44px"><input type="checkbox" id="bankrupt-check" style="width:24px; height:24px"> Bankruptcy: if you can't pay a debt in full, you lose (not during your first 3 turns)</label>
+          <p class="muted" style="margin:0">Three full sets of different colors always wins too.</p>
+        </fieldset>
         <div class="row" style="margin-top:12px" id="lobby-actions"></div>
       </section>
 
@@ -318,7 +329,8 @@ button.dc.selected { transform: translateY(-12px); box-shadow: 0 0 0 4px var(--g
         <li>Swipe takes one property, Swap trades one for one (neither can be part of a full set). Set Steal takes a whole full set. Collect Debt is 5 million, Party Time is 2 million. Bonus Draw draws 2 cards. House adds 3 million rent to a full set, Hotel adds 4 more.</li>
         <li>No Way! blocks an action played on you. Your opponent can play their own No Way! to block your block. It doesn't use a play.</li>
         <li>Paying: you pay from your bank and your properties, never from your hand. No change is given. If you can't cover it, you pay everything you have. "Pay automatically" picks the smallest payment for you.</li>
-        <li>Wild properties can be moved between your colors on your turn for free. A full set needs at least one regular property.</li>
+        <li>Wild properties stay the color you play them as. A full set needs at least one regular property.</li>
+        <li>Game options, chosen before dealing: Bank win (first to bank 30, 50 or 75 million wins) and Bankruptcy (if you owe money and can't pay it in full, you lose; it doesn't count during each player's first 3 turns).</li>
         <li>Screen reader tip: choose a card in your hand to hear everything you can do with it. Each part of the table has its own heading.</li>
       </ul>
     </details>
@@ -339,7 +351,7 @@ button.dc.selected { transform: translateY(-12px); box-shadow: 0 0 0 4px var(--g
 
 <script type="module">
 import { CARDS, COLORS, ACTIONS, HAND_LIMIT, PLAYS, SETS_TO_WIN, cardName, applyAction, viewFor, cpuAction, newTable,
-  isFull, setRent, rentFor, canBe, payValue, autoPay, fullColors } from "./rules.js";
+  isFull, setRent, rentFor, canBe, payValue, autoPay, fullColors, worth } from "./rules.js";
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -444,6 +456,10 @@ function describeSet(s) {
   if (s.house) t += " House."; if (s.hotel) t += " Hotel.";
   return t;
 }
+function optsWords(o) {
+  if (!o) return "";
+  return "Win with 3 full sets" + (o.bankWin ? ", or by banking " + M(o.bankWin) : "") + "." + (o.bankrupt ? " Bankruptcy is on." : "");
+}
 function bankTotal(p) { return view.banks[p].reduce((n, id) => n + CARDS[id].value, 0); }
 function actWords(a) {
   const who = nameOf(a.actor), them = 1 - a.actor;
@@ -460,7 +476,7 @@ function actWords(a) {
 function eventText(ev) {
   const who = nameOf(ev.s), mine = ev.s === view.you;
   switch (ev.t) {
-    case "deal": return "New game. " + who + verb(ev.s, " go first.", " goes first.");
+    case "deal": return "New game. " + optsWords(ev.opts) + " " + who + verb(ev.s, " go first.", " goes first.");
     case "turn": return mine ? "Your turn. You drew " + (ev.cards.length ? ev.cards.map(cname).join(" and ") : "nothing") + ". " + PLAYS + " plays left." : who + "'s turn. " + who + " drew " + ev.cards.length + " cards.";
     case "bank": return who + verb(ev.s, " banked ", " banked ") + (CARDS[ev.card].kind === "money" ? M(CARDS[ev.card].value) : cname(ev.card) + " as " + M(CARDS[ev.card].value)) + ".";
     case "property": return who + verb(ev.s, " played ", " played ") + (CARDS[ev.card].kind === "wild" ? "a wild property as " + colorName(ev.color) : "a " + cname(ev.card)) + ".";
@@ -477,7 +493,10 @@ function eventText(ev) {
     case "build": return who + verb(ev.s, " put ", " put ") + "a " + (ev.what === "house" ? "house" : "hotel") + " on " + your(ev.s) + " " + colorName(ev.color) + " set.";
     case "bonus": return mine ? "You drew " + ev.cards.map(cname).join(" and ") + "." : who + " drew 2 more cards.";
     case "discard": return who + verb(ev.s, " discarded ", " discarded ") + ev.cards.map(cname).join(", ") + ".";
-    case "win": return (mine ? "You have " : who + " has ") + "3 full sets: " + ev.sets.map(colorName).join(", ") + ". " + (mine ? "You win!" : who + " wins!");
+    case "win":
+      if (ev.why === "bank") return (mine ? "You banked " : who + " banked ") + M(ev.bank) + ". " + (mine ? "You win!" : who + " wins!");
+      if (ev.why === "bankrupt") return (ev.loser === view.you ? "You couldn't pay in full and went bankrupt. " : nameOf(ev.loser) + " couldn't pay in full and went bankrupt. ") + (mine ? "You win!" : who + " wins!");
+      return (mine ? "You have " : who + " has ") + "3 full sets: " + ev.sets.map(colorName).join(", ") + ". " + (mine ? "You win!" : who + " wins!");
     default: return "";
   }
 }
@@ -614,7 +633,7 @@ function cardMenu(id) {
   if (c.kind !== "prop" && c.kind !== "wild") opts.push({ label: "Put in your bank as " + M(c.value), fn: () => go({ t: "bank", card: id }) });
   for (const o of opts) if (!play && !o.disabled) { o.disabled = true; o.why = why; }
   const desc = c.kind === "action" ? ACTIONS[c.act].text : c.kind === "prop" ? "Full set: " + COLORS[c.color].size + " cards. Rent by number owned: " + COLORS[c.color].rent.map(M).join(", ") + ". Worth " + M(c.value) + "."
-    : c.kind === "wild" ? "Counts as either color. You can move it between your sets for free on your turn. " + (c.colors === "any" ? "Worth nothing as payment." : "Worth " + M(c.value) + ".") : c.kind === "rent" ? "Charge rent for a color you own. Worth " + M(c.value) + " in the bank." : "Worth " + M(c.value) + ".";
+    : c.kind === "wild" ? "Counts as either color. Once played, it stays that color. " + (c.colors === "any" ? "Worth nothing as payment." : "Worth " + M(c.value) + ".") : c.kind === "rent" ? "Charge rent for a color you own. Worth " + M(c.value) + " in the bank." : "Worth " + M(c.value) + ".";
   dlgKey = "card";
   openDialog(cname(id), desc, opts, play ? "Plays left this turn: " + plays + "." : why, [cancel]);
 }
@@ -671,8 +690,9 @@ function pendingDialog() {
         fn: () => { paySel.has(o.id) ? paySel.delete(o.id) : paySel.add(o.id); dlgKey = null; pendingDialog(); say((paySel.has(o.id) ? "Chosen. " : "Removed. ") + "Total " + M([...paySel].reduce((n, id) => n + payValue(id), 0)) + "."); } });
     }
     const why = { rent: "rent", debt: "Collect Debt", party: "Party Time" }[p.why];
+    const danger = view.opts.bankrupt && view.turnsTaken[me] > view.graceTurns && worth(fake, me) < p.amount;
     openDialog("You owe " + M(p.amount), nameOf(p.payee) + " is collecting " + M(p.amount) + " for " + why + ". Pay from your bank and properties. No change is given.", opts,
-      "Chosen so far: " + M(chosen) + ".", [{ label: "Pay the chosen cards (" + M(chosen) + ")", fn: () => { closeDialog(); act({ t: "pay", cards: [...paySel] }); }, disabled: !paySel.size, why: "Choose cards to pay with, or use Pay automatically." }]);
+      (danger ? "Warning: you only have " + M(worth(fake, me)) + " in total. You can't pay in full, so you go bankrupt and lose. " : "") + "Chosen so far: " + M(chosen) + ".", [{ label: "Pay the chosen cards (" + M(chosen) + ")", fn: () => { closeDialog(); act({ t: "pay", cards: [...paySel] }); }, disabled: !paySel.size, why: "Choose cards to pay with, or use Pay automatically." }]);
     return;
   }
   if (dlgKey && dlgKey.startsWith("must")) closeDialog();
@@ -733,7 +753,6 @@ function startPractice() {
   mode = "practice"; lastEvn = null;
   pst = newTable();
   pst.seats = [{ name: myName() || "You", token: "me" }, { name: "The computer", token: "cpu" }];
-  applyAction(pst, 0, { t: "deal" });
   showGame(); showPractice();
 }
 function cpuNeeded() {
@@ -793,8 +812,13 @@ function renderLobby() {
   const w = view.events.find((e) => e.t === "win");
   $("result").textContent = view.status === "over" && w ? eventText(w) : "";
   const acts = $("lobby-actions"); acts.replaceChildren();
-  if (view.you >= 0 && view.present[0] && view.present[1] && view.status !== "playing")
-    acts.append(button(view.status === "over" ? "Play again" : "Deal the cards", () => act({ t: "deal" }), "primary"));
+  const canDeal = view.you >= 0 && view.present[0] && view.present[1] && view.status !== "playing";
+  $("opts").hidden = !canDeal;
+  if (canDeal) acts.append(button(view.status === "over" ? "Play again" : "Deal the cards", () => {
+    const o = { bankWin: Number($("bank-select").value) || 0, bankrupt: $("bankrupt-check").checked };
+    store.set("dr-opts", JSON.stringify(o));
+    act({ t: "deal", ...o });
+  }, "primary"));
   acts.append(button(mode === "practice" ? "Leave practice" : "Leave game", leaveGame));
 }
 function renderSets(listEl, p, editable) {
@@ -809,8 +833,6 @@ function renderSets(listEl, p, editable) {
     const cards = document.createElement("div"); cards.className = "cards"; cards.setAttribute("aria-hidden", "true");
     for (const id of s.cards) cards.append(cardEl(id, "div", "mini"));
     li.append(t, cards);
-    if (editable) for (const id of s.cards) if (CARDS[id].kind === "wild")
-      li.append(button("Move the wild card in " + COLORS[s.color].name, () => moveMenu(id, s), "small", !(myTurn() && !P()), "You can move wild cards on your own turn."));
     listEl.append(li);
   }
 }
@@ -818,7 +840,8 @@ function renderTables() {
   const me = view.you, them = 1 - me;
   const full = (p) => fullColors(view.tables[p]).size;
   $("my-table-h").textContent = "Your table: " + full(me) + " of " + SETS_TO_WIN + " full sets";
-  $("my-bank").textContent = "Your bank: " + M(bankTotal(me)) + (view.banks[me].length ? " (" + view.banks[me].map((id) => CARDS[id].value + "M").join(", ") + ")" : "") + ".";
+  const goal = view.opts.bankWin ? " of " + view.opts.bankWin + " to win" : "";
+  $("my-bank").textContent = "Your bank: " + M(bankTotal(me)) + goal + (view.banks[me].length ? " (" + view.banks[me].map((id) => CARDS[id].value + "M").join(", ") + ")" : "") + ".";
   renderSets($("my-sets"), me, true);
   $("opp-h").textContent = nameOf(them) + ": " + full(them) + " of " + SETS_TO_WIN + " full sets";
   let t = nameOf(them) + " has " + view.counts[them] + (view.counts[them] === 1 ? " card" : " cards") + " in hand.";
@@ -826,7 +849,7 @@ function renderTables() {
   $("opp-text").textContent = t;
   const box = $("opp-cards"); box.replaceChildren();
   for (let i = 0; i < Math.min(view.counts[them], 12); i++) { const b = document.createElement("div"); b.className = "dc back"; box.append(b); }
-  $("opp-bank").textContent = nameOf(them) + "'s bank: " + M(bankTotal(them)) + ".";
+  $("opp-bank").textContent = nameOf(them) + "'s bank: " + M(bankTotal(them)) + goal + ".";
   renderSets($("opp-sets"), them, false);
 }
 function renderHand() {
@@ -923,6 +946,7 @@ function render() {
 
 // ---------- home ----------
 $("name-input").value = store.get("cc-name") || "";
+try { const o = JSON.parse(store.get("dr-opts") || "{}"); if (o.bankWin != null) $("bank-select").value = String(o.bankWin); $("bankrupt-check").checked = !!o.bankrupt; } catch (e) {}
 $("create-btn").addEventListener("click", createRoom);
 $("join-btn").addEventListener("click", () => joinRoom($("code-input").value));
 $("code-input").addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom($("code-input").value); });
