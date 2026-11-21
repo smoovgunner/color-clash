@@ -202,7 +202,7 @@ footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
 .pc .face { position: absolute; inset: 22% 18%; border-radius: 6px; border: 2px solid currentColor; display: grid; place-items: center; font-family: var(--font-display); font-size: calc(var(--w) * 0.34); opacity: 0.9; }
 button.pc { cursor: pointer; }
 button.pc:hover { transform: translateY(-4px); }
-button.pc[aria-pressed="true"] { transform: translateY(-14px); box-shadow: 0 0 0 4px var(--gold), 0 10px 18px rgba(0,0,0,0.35); }
+button.pc.selected { transform: translateY(-14px); box-shadow: 0 0 0 4px var(--gold), 0 10px 18px rgba(0,0,0,0.35); }
 .pc.back { background: repeating-linear-gradient(45deg, #8f1d2c 0 7px, #a82536 7px 14px); border-color: #fffdf7; }
 .pc.big { --w: 104px; }
 .pc.mini { --w: 46px; border-width: 1px; }
@@ -215,7 +215,7 @@ button.pc[aria-pressed="true"] { transform: translateY(-14px); box-shadow: 0 0 0
 .meld .cards { display: flex; flex-wrap: wrap; gap: 4px; }
 .opp-cards .pc { --w: 44px; margin-left: -22px; border-width: 1px; }
 .opp-cards { display: flex; padding-left: 22px; flex-wrap: wrap; }
-.hint { margin: 10px 0 0; color: var(--ink-soft); }
+.hint { margin: 10px 0 0; color: var(--gold); font-weight: 700; font-size: 18px; }
 @media (max-width: 520px) { .pc { --w: 62px; } .pc.big { --w: 88px; } }
 </style>
 </head>
@@ -312,7 +312,7 @@ button.pc[aria-pressed="true"] { transform: translateY(-14px); box-shadow: 0 0 0
         <li>You can't throw back the card you just took from the discard pile.</li>
         <li>Go out by getting rid of every card, by melding or discarding. You score the points left in your opponent's hand: face cards 10, aces 1, other cards their number.</li>
         <li>First to 100 points wins the match. If the draw pile runs out three times, the round is a draw.</li>
-        <li>How to play a move: select cards in your hand (each card is a toggle button), then choose Lay down as a meld, Add to a meld, or Discard. The Hint button names the melds you could make; both players get it.</li>
+        <li>How to play a move: select cards in your hand (tap a card to select it; tap again to unselect), then choose Lay down as a meld, Add to a meld, or Discard. The Hint button names the melds you could make; both players get it.</li>
       </ul>
     </details>
   </section>
@@ -586,12 +586,19 @@ function showPractice() {
 function showGame() { $("home").hidden = true; $("game").hidden = false; $("banner").setAttribute("tabindex", "-1"); $("banner").focus(); }
 
 // ---------- render ----------
-function button(label, onClick, cls, disabled) {
+function button(label, onClick, cls, disabled, why) {
   const b = document.createElement("button");
   b.type = "button"; b.className = "btn" + (cls ? " " + cls : ""); b.textContent = label;
   if (disabled) b.setAttribute("aria-disabled", "true");
-  b.addEventListener("click", () => { if (b.getAttribute("aria-disabled") !== "true") onClick(); });
+  // a greyed-out button says why it can't be used instead of doing nothing
+  b.addEventListener("click", () => { if (b.getAttribute("aria-disabled") !== "true") onClick(); else if (why) problem(why); });
   return b;
+}
+function whyNot(need) {
+  if (!view || view.status !== "playing") return "No round is being played right now.";
+  if (view.turn !== view.you) return "Wait for your turn. It's " + nameOf(view.turn) + "'s turn.";
+  if (view.phase === "draw") return "Draw a card first: from the pile, or take the top of the discard pile. The buttons are in the Draw and discard section.";
+  return need;
 }
 function renderRoom() {
   $("room").hidden = mode !== "online";
@@ -652,7 +659,8 @@ function renderMelds() {
     li.append(p, cards);
     if (canAdd) {
       const fits = one && fitsMeld(m, one);
-      li.append(button(one ? (fits ? "Add the " + cardName(one) + " here" : "The " + cardName(one) + " doesn't fit here") : "Select one card to add here", () => layOff(m.id), "small", !fits));
+      li.append(button(one ? (fits ? "Add the " + cardName(one) + " here" : "The " + cardName(one) + " doesn't fit here") : "Select one card to add here", () => layOff(m.id), "small", !fits,
+        one ? cardName(one) + " doesn't fit " + describeMeld(m) + "." : "Select one card in your hand first, then come back to this meld."));
     }
     list.append(li);
   }
@@ -672,13 +680,19 @@ function renderHand() {
       b.addEventListener("click", () => {
         if (selected.has(c)) selected.delete(c); else selected.add(c);
         render(true);
+        const n = selected.size;
+        say((selected.has(c) ? "Selected" : "Unselected") + ". " + n + (n === 1 ? " card selected." : " cards selected."));
       });
       hand.append(b);
     }
     hand.dataset.key = key;
     if (focusedIdx >= 0) (hand.querySelector('[data-id="' + focusedId + '"]') || hand.children[Math.min(focusedIdx, hand.children.length - 1)])?.focus();
   }
-  for (const b of hand.children) b.setAttribute("aria-pressed", selected.has(b.dataset.id) ? "true" : "false");
+  for (const b of hand.children) {
+    const on = selected.has(b.dataset.id);
+    b.classList.toggle("selected", on);
+    b.setAttribute("aria-label", cardName(b.dataset.id) + (on ? ", selected" : ""));
+  }
   $("mine-h").textContent = "Your hand: " + view.hand.length + " cards";
   const cs = sel();
   $("select-text").textContent = cs.length ? "Selected: " + cs.map(cardName).join(", ") + "." : (myTurn() && view.phase === "play" ? "Select cards, then choose what to do with them." : "");
@@ -686,8 +700,11 @@ function renderHand() {
   if (view.status !== "playing") return;
   const playing = myTurn() && view.phase === "play";
   const kind = meldKind(cs);
-  acts.append(button(kind ? "Lay down as a " + kind : "Lay down as a meld", layDown, "primary", !playing || !kind));
-  acts.append(button(cs.length === 1 ? "Discard the " + cardName(cs[0]) : "Discard", discard, "", !playing || cs.length !== 1));
+  acts.append(button(kind ? "Lay down as a " + kind : "Lay down as a meld", layDown, "primary", !playing || !kind,
+    whyNot(cs.length < 3 ? "Select at least three cards that make a set or a run. You have " + cs.length + " selected." : "The selected cards don't make a set or a run.")));
+  const tookBack = cs.length === 1 && view.taken === cs[0] && view.hand.length > 1;
+  acts.append(button(cs.length === 1 ? "Discard the " + cardName(cs[0]) : "Discard", discard, "", !playing || cs.length !== 1 || tookBack,
+    whyNot(tookBack ? "You can't throw back the " + cardName(cs[0]) + ", because you just took it from the discard pile. Pick a different card." : "Select just one card to discard. You have " + cs.length + " selected.")));
   if (cs.length) acts.append(button("Clear selection", () => { selected.clear(); render(true); }));
   acts.append(button("Hint", hint));
 }
