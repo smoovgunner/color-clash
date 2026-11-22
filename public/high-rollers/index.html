@@ -299,7 +299,7 @@ ul.plain { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
     <details>
       <summary id="rules-h">How to play</summary>
       <ul>
-        <li>Six casinos, numbered 1 to 6. Each round, every casino gets cash bills until it holds at least $50,000.</li>
+        <li>Six casinos, numbered 1 to 6. Each round, every casino gets cash bills until it holds at least $50,000. Each bill is a separate prize: the biggest is 1st place, the next is 2nd place, and so on. They are not added together.</li>
         <li>Each player has 8 dice in their color, plus 4 white house dice. On your turn, roll all the dice you have left. Then pick one number you rolled and place every die showing that number, yours and white, on the casino with that number.</li>
         <li>Take turns until all dice are placed. If your partner runs out first, you keep going.</li>
         <li>Payout: at each casino, whoever has the most dice takes the biggest bill, the next most takes the next bill, and so on. The white house dice count as a third player; money they win leaves the game.</li>
@@ -416,7 +416,9 @@ const NUM = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight
 const count = (n, one, many) => NUM[n] + " " + (n === 1 ? one : many);
 const plural = (v, n) => (n === 1 ? "a " + v : NUM[n] + " " + v + "s");
 const andList = (whos) => whos.map(nameOf).map((n, i) => (i && n === "You" ? "you" : n)).join(" and ");
-const billsText = (b) => (b.length ? b.map(money).join(" and ") : "nothing");
+const PLACE = ["1st", "2nd", "3rd", "4th", "5th"];
+/** "1st place $70,000, 2nd $50,000, 3rd $20,000" */
+const billsText = (b) => (b.length ? b.map((x, i) => (i ? PLACE[i] + " " : "1st place ") + money(x)).join(", ") : "nothing");
 /** "three 2s, a 4 and two 6s (one of them a house die)" */
 function rollWords(dice) {
   const parts = [];
@@ -452,7 +454,7 @@ function eventText(ev) {
   const who = nameOf(ev.s), mine = ev.s === view.you;
   switch (ev.t) {
     case "deal": return "New game. " + who + verb(ev.s, " go first.", " goes first.");
-    case "round": return "Round " + ev.round + " of " + ROUNDS + ". " + ev.casinos.map((b, i) => "Casino " + (i + 1) + " has " + billsText(b) + ".").join(" ") + " " + (mine ? "You start. Roll the dice." : who + " starts.");
+    case "round": return "Round " + ev.round + " of " + ROUNDS + ". " + ev.casinos.map((b, i) => "Casino " + (i + 1) + ": " + billsText(b) + ".").join(" ") + " " + (mine ? "You start. Roll the dice." : who + " starts.");
     case "roll": return who + verb(ev.s, " rolled ", " rolled ") + rollWords(ev.dice) + "." + (mine ? " Pick a number to place." : "");
     case "place": return who + verb(ev.s, " placed ", " placed ") + (ev.own ? plural(ev.v, ev.own) : "") + (ev.own && ev.house ? " and " : "") + (ev.house ? count(ev.house, "house die", "house dice") : "") + " on casino " + ev.v + ". Casino " + ev.v + " now: " + standing(ev.dice) + ". " + verb(ev.s, "You have ", who + " has ") + count(ev.left, "die", "dice") + " left.";
     case "turn": return mine ? "Your turn. Roll your " + count(ev.left, "die", "dice") + "." : "";
@@ -645,7 +647,7 @@ function renderRoll(rolledNow) {
     ds.forEach((d) => row.append(die(v, d.h ? 2 : roller, false, rolledNow)));
     const c = view.casinos[v - 1];
     const what = (own ? plural(v, own) : "") + (own && house ? " and " : "") + (house ? count(house, "house die", "house dice") : "");
-    const label = "Place " + what + " on casino " + v + ". It has " + billsText(c.bills) + "; dice there: " + standing(c.dice) + ".";
+    const label = "Place " + what + " on casino " + v + ". Prizes: " + billsText(c.bills) + "; dice there: " + standing(c.dice) + ".";
     if (mine) {
       const b = button("Casino " + v + ": place " + what, () => act({ t: "place", v }), "primary");
       b.setAttribute("aria-label", label);
@@ -664,8 +666,8 @@ function renderCasinos() {
     const li = document.createElement("li"); li.className = "casino" + (rolled.has(i + 1) ? " hot" : "");
     const h = document.createElement("h3"); h.append(die(i + 1, 2, true), document.createTextNode("Casino " + (i + 1)));
     const bills = document.createElement("div"); bills.className = "bills";
-    for (const b of c.bills) { const s = document.createElement("span"); s.className = "bill"; s.textContent = money(b); bills.append(s); }
-    const sr = document.createElement("p"); sr.className = "sr-only"; sr.textContent = "Cash: " + billsText(c.bills) + ". Dice: " + standing(c.dice) + ". " + leaderText(c);
+    for (const b of c.bills) { const s = document.createElement("span"); s.className = "bill"; s.textContent = PLACE[bills.children.length] + " " + money(b); bills.append(s); }
+    const sr = document.createElement("p"); sr.className = "sr-only"; sr.textContent = "Prizes: " + billsText(c.bills) + ". Dice: " + standing(c.dice) + ". " + leaderText(c);
     const stacks = document.createElement("div"); stacks.className = "stacks"; stacks.setAttribute("aria-hidden", "true");
     for (const who of order) {
       if (!c.dice[who]) continue;
