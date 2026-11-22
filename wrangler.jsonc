@@ -12,7 +12,8 @@
       { "name": "DR_ROOMS", "class_name": "DealRoom" },
       { "name": "DD_ROOMS", "class_name": "DiceRoom" },
       { "name": "BOARD", "class_name": "Board" },
-      { "name": "SS_ROOMS", "class_name": "SurveyRoom" }
+      { "name": "SS_ROOMS", "class_name": "SurveyRoom" },
+      { "name": "HR_ROOMS", "class_name": "CasinoRoom" }
     ]
   },
   "migrations": [
@@ -22,6 +23,7 @@
     { "tag": "v4", "new_sqlite_classes": ["DealRoom"] },
     { "tag": "v5", "new_sqlite_classes": ["DiceRoom"] },
     { "tag": "v6", "new_sqlite_classes": ["Board"] },
-    { "tag": "v7", "new_sqlite_classes": ["SurveyRoom"] }
+    { "tag": "v7", "new_sqlite_classes": ["SurveyRoom"] },
+    { "tag": "v8", "new_sqlite_classes": ["CasinoRoom"] }
   ]
 }

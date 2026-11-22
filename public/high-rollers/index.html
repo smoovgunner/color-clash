@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>High Rollers</title>
+<meta name="description" content="A casino dice game for two: roll, claim casinos, and knock your rival out with ties. Made so blind and sighted players can play together.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bungee&display=swap">
+<style>
+/* Layout: one card table — opponent across the top, play area in the middle, your hand along the bottom. */
+:root {
+  color-scheme: dark;
+  --felt: #0f3b3a;
+  --felt-deep: #0a2a29;
+  --rail: #072120;
+  --ink: #f3efe6;
+  --ink-soft: #b9c9c4;
+  --gold: #f0b43a;
+  --red: #ff3b30;
+  --yellow: #ffd400;
+  --green: #18cf5c;
+  --blue: #1e7bff;
+  --black: #1b1d22;
+  --font-display: "Bungee", "Arial Black", Impact, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --card-w: 84px;
+  --card-h: 126px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at 50% 40%, var(--felt) 0%, var(--felt-deep) 75%) fixed, var(--felt-deep);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.45;
+}
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding-block: 18px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 18px;
+}
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(26px, 6vw, 38px); margin: 0; letter-spacing: 0.02em; }
+h1 .c1 { color: var(--red); } h1 .c2 { color: var(--yellow); } h1 .c3 { color: var(--green); } h1 .c4 { color: var(--blue); }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); margin: 0 0 8px; font-weight: 700; }
+.score { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.banner {
+  background: var(--rail);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 19px;
+  font-weight: 700;
+  border: 2px solid transparent;
+}
+.banner.mine { border-color: var(--gold); color: var(--gold); }
+.panel { background: rgba(0,0,0,0.18); border-radius: 18px; padding: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.muted { color: var(--ink-soft); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+button.btn {
+  font: 700 17px/1 var(--font-body);
+  padding: 13px 18px;
+  border-radius: 12px;
+  border: 2px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  min-height: 48px;
+}
+button.btn.small { min-height: 40px; padding: 8px 14px; font-size: 15px; }
+button.btn.primary { background: var(--gold); border-color: var(--gold); color: #1d1503; }
+button.btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+button:focus-visible, .card:focus-visible { outline: 4px solid #fff; outline-offset: 3px; }
+
+/* Cards */
+.card {
+  position: relative;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 10px;
+  border: 3px solid #f7f3ea;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.35), 0 6px 14px rgba(0,0,0,0.25);
+  color: #fff;
+  font-family: var(--font-display);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  flex: none;
+  overflow: hidden;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.3);
+}
+button.card { cursor: pointer; transition: transform 0.12s ease; }
+button.card:hover:not([aria-disabled="true"]) { transform: translateY(-6px); }
+button.card[aria-disabled="true"] { cursor: default; }
+/* On your turn: cards you can play lift up with a gold edge; the rest fade back. Off your turn every card stays full color. */
+button.card.can { transform: translateY(-8px); box-shadow: 0 0 0 4px var(--gold), 0 8px 18px rgba(0,0,0,0.35); }
+button.card.dim { opacity: 0.5; }
+.card.c-r { background: var(--red); }
+.card.c-y { background: var(--yellow); color: #2a1f00; text-shadow: none; }
+.card.c-g { background: var(--green); }
+.card.c-b { background: var(--blue); }
+.card.c-w { background: conic-gradient(var(--red) 0 25%, var(--yellow) 0 50%, var(--green) 0 75%, var(--blue) 0); }
+.card .band {
+  position: absolute; inset: 22% -20%;
+  background: rgba(255,255,255,0.13);
+  transform: rotate(-24deg);
+}
+.card.c-w .band { background: var(--black); inset: 30% -20%; }
+.card .mid { position: relative; font-size: calc(var(--card-w) * 0.5); line-height: 1; }
+.card .mid.small { font-size: calc(var(--card-w) * 0.3); }
+.card .corner { position: absolute; font-size: calc(var(--card-w) * 0.2); line-height: 1; }
+.card .corner.tl { top: 6px; left: 6px; }
+.card .corner.br { bottom: 6px; right: 6px; transform: rotate(180deg); }
+.card.big { --card-w: 132px; --card-h: 198px; border-width: 4px; }
+.card.back {
+  background: repeating-linear-gradient(45deg, #23262d 0 8px, #2d3139 8px 16px);
+  border-color: #f7f3ea;
+}
+.card.back .mid { font-size: calc(var(--card-w) * 0.24); color: var(--gold); }
+.card.selected { transform: translateY(-10px); }
+
+/* Table */
+.table-mid { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; justify-content: center; padding: 10px 0; }
+.pile { display: grid; justify-items: center; gap: 8px; }
+.pile-label { font-size: 14px; color: var(--ink-soft); text-align: center; }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-right: 6px; border: 2px solid #fff; }
+.opp-cards { display: flex; flex-wrap: wrap; gap: 0; padding-left: 20px; }
+.opp-cards .card { --card-w: 52px; --card-h: 78px; margin-left: -22px; border-width: 2px; }
+.hand { display: flex; flex-wrap: wrap; gap: 10px; }
+.seats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.seat { background: var(--rail); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+.seat strong { font-size: 19px; }
+ol.log { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+ol.log li { color: var(--ink-soft); }
+ol.log li:first-child { color: var(--ink); }
+details summary { cursor: pointer; font-weight: 700; }
+details ul { margin: 8px 0 0; padding-left: 22px; display: grid; gap: 4px; }
+
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: grid; place-items: center; z-index: 20;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.dialog { background: var(--rail); border-radius: 18px; padding: 20px; width: min(420px, 100%); display: grid; gap: 14px; border: 2px solid var(--gold); }
+.dialog h2 { font-size: 20px; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.choice { font: 700 18px var(--font-body); min-height: 64px; border-radius: 12px; border: 3px solid #fff; color: #fff; cursor: pointer; }
+.choice.r { background: var(--red); } .choice.y { background: var(--yellow); color: #2a1f00; } .choice.g { background: var(--green); } .choice.b { background: var(--blue); }
+
+@media (max-width: 520px) {
+  :root { --card-w: 72px; --card-h: 108px; }
+  .card.big { --card-w: 112px; --card-h: 168px; }
+  .hand { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<style>
+/* High Rollers: the EvenPlay table as a casino strip. Six casinos, cash bills, colored dice. */
+:root { --p0: #ff5a4f; --p1: #3d8bff; --house: #fffdf6; --cash: #9be07a; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+h1 .c11 { color: var(--gold); } h1 .c12 { color: var(--cash); }
+.home { display: grid; gap: 16px; }
+.field { display: grid; gap: 6px; }
+.field label { font-weight: 700; }
+.field input { font: 700 20px var(--font-body); padding: 12px 14px; border-radius: 12px; border: 2px solid var(--ink-soft); background: var(--rail); color: var(--ink); min-height: 52px; width: 100%; }
+.field input:focus-visible { outline: 4px solid #fff; outline-offset: 2px; }
+.code-big { font-family: var(--font-display); font-size: clamp(30px, 9vw, 44px); letter-spacing: 0.06em; color: var(--gold); margin: 4px 0 6px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; background: #6b7d78; }
+.dot.on { background: #4fd18b; }
+footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
+.games { display: flex; gap: 14px; flex-wrap: wrap; font-size: 15px; }
+.games a { color: var(--gold); }
+.msg { min-height: 1.4em; margin: 10px 0 0; font-weight: 700; color: var(--gold); }
+
+/* dice */
+.die {
+  --s: 46px; width: var(--s); height: var(--s); border-radius: 10px; background: var(--house); border: 2px solid rgba(0,0,0,0.25);
+  display: inline-grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: calc(var(--s) * 0.13); gap: 1px; flex: none;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+}
+.die i { border-radius: 50%; background: #1b1b1f; align-self: center; justify-self: center; width: 76%; aspect-ratio: 1; visibility: hidden; }
+.die.p0 { background: var(--p0); } .die.p0 i { background: #fff; }
+.die.p1 { background: var(--p1); } .die.p1 i { background: #fff; }
+.die.sm { --s: 22px; border-radius: 5px; box-shadow: none; border-width: 1px; }
+.die.rolling { animation: shake 0.35s ease; }
+@keyframes shake { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-14deg); } 75% { transform: rotate(10deg); } }
+
+/* casinos */
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(138px, 1fr)); gap: 12px; list-style: none; margin: 0; padding: 0; }
+.casino { background: linear-gradient(180deg, #3a1450, #22092f); border-radius: 16px; padding: 12px; display: grid; gap: 8px; align-content: start; border: 3px solid #6c2c8c; position: relative; }
+.casino.hot { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(240,180,58,0.35), 0 0 22px rgba(240,180,58,0.35); }
+.casino h3 { margin: 0; display: flex; align-items: center; gap: 8px; white-space: nowrap; font-family: var(--font-display); font-weight: 400; font-size: 17px; color: #ffd76a; letter-spacing: 0.03em; }
+.bills { display: flex; flex-wrap: wrap; gap: 5px; }
+.bill { background: linear-gradient(135deg, #cdeebc, #8fd370); color: #133b0e; font-weight: 700; font-size: 14px; border-radius: 5px; padding: 3px 7px; border: 2px solid #4f8f37; font-variant-numeric: tabular-nums; }
+.stacks { display: grid; gap: 4px; font-size: 14px; }
+.stack { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; min-height: 24px; }
+.stack .who { width: 100%; color: var(--ink-soft); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lead { font-size: 13px; color: var(--ink-soft); min-height: 1.2em; }
+
+/* roll */
+.groups { display: grid; gap: 10px; }
+.group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: rgba(255,255,255,0.05); border-radius: 14px; padding: 10px; }
+.group .dice-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.money { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.money .seat { border-left: 6px solid var(--p0); }
+.money .seat.s1 { border-left-color: var(--p1); }
+.cashbig { font-family: var(--font-display); font-size: 26px; color: var(--cash); }
+ul.plain { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+@media (prefers-reduced-motion: reduce) { .die.rolling { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="c11">High</span> <span class="c12">Rollers</span></h1>
+    <div class="row"><div class="score" id="score"></div><button type="button" class="btn small" id="sound-btn" aria-pressed="true">Sound on</button></div>
+  </header>
+  <nav class="games" aria-label="EvenPlay games"><a href="/">All games</a> <a href="/leaderboards/">Leaderboards</a> <span class="muted">More games:</span> <a href="/color-clash/">Color Clash</a> <a href="/letter-flip/">Letter Flip</a> <a href="/rummy/">Rummy</a> <a href="/deal-rush/">Deal Rush</a> <a href="/dice-dash/">Dice Dash</a> <a href="/survey-showdown/">Survey Showdown</a></nav>
+
+  <div id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <section id="home" class="panel home" aria-labelledby="home-h">
+    <h2 id="home-h">Play</h2>
+    <div class="field">
+      <label for="name-input">Your name</label>
+      <input id="name-input" type="text" autocomplete="nickname" maxlength="24" placeholder="Shown to the other player">
+    </div>
+    <div class="row"><button type="button" class="btn primary" id="create-btn">Create a new game</button></div>
+    <div class="field">
+      <label for="code-input">Game code from your partner</label>
+      <input id="code-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="16" placeholder="For example TIGER42">
+    </div>
+    <div class="row">
+      <button type="button" class="btn" id="join-btn">Join game</button>
+      <button type="button" class="btn" id="practice-btn">Practice against the computer</button>
+    </div>
+    <p class="muted" id="home-msg" style="margin:0"></p>
+  </section>
+
+  <div id="game" hidden>
+    <div style="display:grid; gap:18px">
+      <div class="banner" id="banner"></div>
+
+      <section id="room" class="panel" aria-labelledby="room-h">
+        <h2 id="room-h">Game code</h2>
+        <div class="code-big" id="room-code"></div>
+        <p class="muted" style="margin:0 0 12px">Share this code with your partner. They open this page, type the code, and join.</p>
+        <div class="row" id="room-actions"></div>
+      </section>
+
+      <section id="lobby" class="panel" aria-labelledby="lobby-h">
+        <h2 id="lobby-h">Players</h2>
+        <div class="seats" id="seats"></div>
+        <p id="result" style="margin:12px 0 0"></p>
+        <div class="row" style="margin-top:12px" id="lobby-actions"></div>
+      </section>
+
+      <section id="roll-panel" class="panel" hidden aria-labelledby="roll-h">
+        <h2 id="roll-h">Your roll</h2>
+        <p id="roll-text" style="margin:0 0 10px"></p>
+        <div class="groups" id="groups"></div>
+        <div class="row" id="roll-actions" style="margin-top:10px"></div>
+        <p class="msg" id="msg"></p>
+      </section>
+
+      <section id="payout-panel" class="panel" hidden aria-labelledby="payout-h">
+        <h2 id="payout-h">Payout</h2>
+        <ul class="plain" id="payout"></ul>
+        <div class="row" id="payout-actions" style="margin-top:12px"></div>
+      </section>
+
+      <section id="casino-panel" class="panel" hidden aria-labelledby="casino-h">
+        <h2 id="casino-h">Casinos</h2>
+        <ul class="strip" id="strip"></ul>
+      </section>
+
+      <section id="money-panel" class="panel" hidden aria-labelledby="money-h">
+        <h2 id="money-h">Money and dice</h2>
+        <div class="money" id="money"></div>
+      </section>
+
+      <section class="panel" id="log-panel" hidden aria-labelledby="log-h">
+        <h2 id="log-h">Recent moves</h2>
+        <ol class="log" id="log"></ol>
+      </section>
+    </div>
+  </div>
+
+  <section class="panel" aria-labelledby="rules-h">
+    <details>
+      <summary id="rules-h">How to play</summary>
+      <ul>
+        <li>Six casinos, numbered 1 to 6. Each round, every casino gets cash bills until it holds at least $50,000.</li>
+        <li>Each player has 8 dice in their color, plus 4 white house dice. On your turn, roll all the dice you have left. Then pick one number you rolled and place every die showing that number, yours and white, on the casino with that number.</li>
+        <li>Take turns until all dice are placed. If your partner runs out first, you keep going.</li>
+        <li>Payout: at each casino, whoever has the most dice takes the biggest bill, the next most takes the next bill, and so on. The white house dice count as a third player; money they win leaves the game.</li>
+        <li>The twist: players who tie at a casino win nothing there, and the next player in line moves up. Use it to knock your rival out.</li>
+        <li>After 4 rounds, the most money wins. A tie goes to whoever has more bills.</li>
+        <li>Screen reader tip: after you roll, the Your roll section has one button per number, saying how many dice it places and what that casino holds. The Casinos section lists every casino's cash, dice and current leader.</li>
+      </ul>
+    </details>
+  </section>
+
+  <footer>High Rollers, an EvenPlay game made by smoovgunner with Claude, so blind and sighted players can share a game.</footer>
+</div>
+
+<script type="module">
+import { ROUNDS, HOUSE_DICE, money, payoutFor, applyAction, viewFor, cpuAction, newTable } from "./rules.js";
+
+const $ = (id) => document.getElementById(id);
+let cpuGame = false, autoDeal = null;
+/** This device's EvenPlay player code: keeps your leaderboard streaks. */
+function playerCode() {
+  let c = null;
+  try { c = localStorage.getItem("ep-player"); } catch (e) {}
+  if (!/^[A-Z2-9]{12}$/.test(c || "")) {
+    const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", a = new Uint8Array(12); crypto.getRandomValues(a);
+    c = [...a].map((x) => A[x % 32]).join("");
+    try { localStorage.setItem("ep-player", c); } catch (e) {}
+  }
+  return c;
+}
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+let mode = "home";
+let view = null, code = null, ws = null, wsTries = 0, wsTimer = null, pingTimer = null, leaving = false;
+let pst = null, cpuTimer = null, lastEvn = null;
+
+// ---------- sound effects (made in the browser, no audio files) ----------
+let soundOn = true, actx = null;
+try { soundOn = localStorage.getItem("cc-sound") !== "off"; } catch (e) {}
+function audio() {
+  if (!soundOn) return null;
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    return actx;
+  } catch (e) { return null; }
+}
+function tone(ac, t, freq, dur, type, vol, slideTo) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type || "sine";
+  o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(ac.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function noise(ac, t, dur, from, to, vol) {
+  const len = Math.max(1, Math.floor(ac.sampleRate * dur));
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = ac.createBufferSource(); src.buffer = buf;
+  const f = ac.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 1.2;
+  f.frequency.setValueAtTime(from, t);
+  if (to) f.frequency.exponentialRampToValueAtTime(to, t + dur);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(vol || 0.5, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f).connect(g).connect(ac.destination);
+  src.start(t); src.stop(t + dur + 0.02);
+}
+const SFX = {
+  roll: (ac, t) => { for (let i = 0; i < 7; i++) noise(ac, t + i * 0.055, 0.05, 1800 + i * 250, 900, 0.45); },
+  place: (ac, t) => { noise(ac, t, 0.07, 2500, 1200, 0.7); tone(ac, t, 140, 0.09, "sine", 0.25, 70); },
+  turn: (ac, t) => { tone(ac, t, 659, 0.22, "sine", 0.16); tone(ac, t + 0.14, 880, 0.35, "sine", 0.16); },
+  cash: (ac, t) => { [1319, 1568, 2093].forEach((f, i) => tone(ac, t + i * 0.08, f, 0.22, "square", 0.05)); noise(ac, t + 0.25, 0.25, 4000, 6000, 0.25); },
+  tie: (ac, t) => { tone(ac, t, 330, 0.2, "sawtooth", 0.07, 220); },
+  nope: (ac, t) => { tone(ac, t, 200, 0.18, "square", 0.07, 150); tone(ac, t + 0.2, 150, 0.25, "square", 0.07, 110); },
+  win: (ac, t) => { [523, 659, 784].forEach((f, i) => tone(ac, t + i * 0.13, f, 0.16, "square", 0.08)); tone(ac, t + 0.42, 1047, 0.6, "square", 0.09); },
+  lose: (ac, t) => { [392, 370, 349].forEach((f, i) => tone(ac, t + i * 0.28, f, 0.26, "sawtooth", 0.07)); tone(ac, t + 0.84, 330, 0.7, "sawtooth", 0.07, 300); },
+};
+function playSounds(names) {
+  const ac = audio(); if (!ac) return;
+  let t = ac.currentTime + 0.03;
+  for (const n of names) { if (SFX[n]) { SFX[n](ac, t); t += n === "win" || n === "lose" ? 1.2 : 0.35; } }
+}
+function renderSoundBtn() {
+  const b = $("sound-btn");
+  b.textContent = soundOn ? "Sound on" : "Sound off";
+  b.setAttribute("aria-pressed", soundOn ? "true" : "false");
+}
+$("sound-btn").addEventListener("click", () => {
+  soundOn = !soundOn;
+  try { localStorage.setItem("cc-sound", soundOn ? "on" : "off"); } catch (e) {}
+  renderSoundBtn();
+  if (soundOn) playSounds(["turn"]);
+});
+renderSoundBtn();
+
+// ---------- words ----------
+const myName = () => ($("name-input").value.trim() || store.get("cc-name") || "").slice(0, 24);
+function nameOf(seat) {
+  if (!view || seat == null || seat < 0) return "";
+  if (seat === 2) return "House";
+  if (seat === view.you) return "You";
+  if (mode === "practice" && seat === 1) return "The computer";
+  return view.names[seat] || "Your partner";
+}
+const verb = (seat, you, them) => (seat === view.you ? you : them);
+const NUM = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+const count = (n, one, many) => NUM[n] + " " + (n === 1 ? one : many);
+const plural = (v, n) => (n === 1 ? "a " + v : NUM[n] + " " + v + "s");
+const andList = (whos) => whos.map(nameOf).map((n, i) => (i && n === "You" ? "you" : n)).join(" and ");
+const billsText = (b) => (b.length ? b.map(money).join(" and ") : "nothing");
+/** "three 2s, a 4 and two 6s (one of them a house die)" */
+function rollWords(dice) {
+  const parts = [];
+  for (let v = 1; v <= 6; v++) {
+    const own = dice.filter((d) => d.v === v && !d.h).length, house = dice.filter((d) => d.v === v && d.h).length;
+    if (!own && !house) continue;
+    let p = plural(v, own + house);
+    if (house) p += house === own + house ? (house === 1 ? " (house)" : " (all house)") : " (" + house + " house)";
+    parts.push(p);
+  }
+  return parts.length > 1 ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] : parts[0] || "nothing";
+}
+/** "you 3, The computer 2, house 1" */
+function standing(dice) {
+  const bits = [];
+  for (const who of [view.you >= 0 ? view.you : 0, view.you >= 0 ? 1 - view.you : 1, 2]) if (dice[who]) bits.push(nameOf(who) + " " + dice[who]);
+  return bits.length ? bits.join(", ") : "no dice yet";
+}
+function leaderText(c) {
+  if (!c.dice.some(Boolean)) return "Empty.";
+  const r = payoutFor(c);
+  const done = view.phase === "roundover" || view.status === "over";
+  const parts = r.paid.map((p) => nameOf(p.who) + (done ? (p.who === view.you ? " won " : " won ") : " would win ") + money(p.bill));
+  if (r.tied.length) parts.push("tied out: " + andList(r.tied));
+  return (parts.join("; ") || "Nobody would win") + ".";
+}
+function payoutLine(r) {
+  const bits = r.paid.map((p) => nameOf(p.who) + (p.who === view.you ? " win " : " wins ") + money(p.bill));
+  if (r.tied.length) bits.push(andList(r.tied) + " tied, nothing");
+  return "Casino " + r.v + ": " + (r.dice.some(Boolean) ? bits.join(". ") || "nobody wins" : "no dice, nobody wins") + ".";
+}
+function eventText(ev) {
+  const who = nameOf(ev.s), mine = ev.s === view.you;
+  switch (ev.t) {
+    case "deal": return "New game. " + who + verb(ev.s, " go first.", " goes first.");
+    case "round": return "Round " + ev.round + " of " + ROUNDS + ". " + ev.casinos.map((b, i) => "Casino " + (i + 1) + " has " + billsText(b) + ".").join(" ") + " " + (mine ? "You start. Roll the dice." : who + " starts.");
+    case "roll": return who + verb(ev.s, " rolled ", " rolled ") + rollWords(ev.dice) + "." + (mine ? " Pick a number to place." : "");
+    case "place": return who + verb(ev.s, " placed ", " placed ") + (ev.own ? plural(ev.v, ev.own) : "") + (ev.own && ev.house ? " and " : "") + (ev.house ? count(ev.house, "house die", "house dice") : "") + " on casino " + ev.v + ". Casino " + ev.v + " now: " + standing(ev.dice) + ". " + verb(ev.s, "You have ", who + " has ") + count(ev.left, "die", "dice") + " left.";
+    case "turn": return mine ? "Your turn. Roll your " + count(ev.left, "die", "dice") + "." : "";
+    case "payout": return "Round " + ev.round + " payout. " + ev.results.map(payoutLine).join(" ") + " Money: " + nameOf(0) + " " + money(ev.cash[0]) + ", " + nameOf(1) + " " + money(ev.cash[1]) + ".";
+    case "end": return "Game over. " + nameOf(0) + " " + money(ev.cash[0]) + ", " + nameOf(1) + " " + money(ev.cash[1]) + ". " + (ev.winner === -1 ? "It's a tie!" : ev.winner === view.you ? "You win!" : nameOf(ev.winner) + " wins!");
+  }
+  return "";
+}
+function say(text) { const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
+function problem(text) { $("msg").textContent = text; say(text); playSounds(["nope"]); }
+function eventSounds(ev) {
+  if (ev.t === "roll") return ["roll"];
+  if (ev.t === "place") return ["place"];
+  if (ev.t === "payout") return ev.results.some((r) => r.paid.some((p) => p.who === view.you)) ? ["cash"] : ev.results.some((r) => r.tied.includes(view.you)) ? ["tie"] : [];
+  if (ev.t === "end") return [ev.winner === view.you ? "win" : "lose"];
+  return [];
+}
+
+// ---------- moves ----------
+const myTurn = () => view && view.status === "playing" && view.turn === view.you;
+function act(action) {
+  if (ws) {
+    if (ws.readyState !== 1) { say("Not connected right now. Trying to reconnect."); return; }
+    ws.send(JSON.stringify({ type: "act", action }));
+  } else if (mode === "practice" && pst) {
+    const err = applyAction(pst, 0, action);
+    if (err) { problem(err); return; }
+    showPractice();
+  }
+}
+
+// ---------- online / practice ----------
+function tokenFor(c) {
+  let t = store.get("hr-token-" + c);
+  if (!t) { const a = new Uint8Array(16); crypto.getRandomValues(a); t = [...a].map((x) => x.toString(16).padStart(2, "0")).join(""); store.set("hr-token-" + c, t); }
+  return t;
+}
+function connect() {
+  clearTimeout(wsTimer);
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  ws = new WebSocket(proto + "//" + location.host + "/api/hr/room/" + code + (cpuGame ? "?cpu=1" : ""));
+  ws.onopen = () => {
+    wsTries = 0;
+    ws.send(JSON.stringify({ type: "hello", token: tokenFor(code), name: myName() || "Player", player: playerCode() }));
+    clearInterval(pingTimer);
+    pingTimer = setInterval(() => { try { ws.send('{"type":"ping"}'); } catch (e) {} }, 25000);
+  };
+  ws.onmessage = (e) => {
+    let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+    if (m.type === "state") {
+      view = m.view; render();
+      if (autoDeal && view.status === "waiting" && view.present[0] && view.present[1] && view.you === 0) { const a = autoDeal; autoDeal = null; act(a); }
+    }
+    else if (m.type === "error") problem(m.message);
+  };
+  ws.onclose = () => {
+    clearInterval(pingTimer);
+    if (leaving || mode === "home") return;
+    $("banner").textContent = "Connection lost. Reconnecting…"; say("Connection lost. Reconnecting.");
+    wsTries++; wsTimer = setTimeout(connect, Math.min(1000 * wsTries, 8000));
+  };
+}
+function joinRoom(c) {
+  code = c.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (code.length < 3) { $("home-msg").textContent = "Type the game code your partner gave you, like TIGER42."; $("code-input").focus(); return; }
+  store.set("cc-name", myName());
+  mode = "online"; leaving = false; view = null; lastEvn = null;
+  history.replaceState(null, "", "#" + code);
+  showGame(); $("banner").textContent = "Joining game " + code + "…";
+  connect();
+}
+async function createRoom() {
+  $("home-msg").textContent = "Making a new game…";
+  try { const r = await fetch("/api/hr/new"); const { code: c } = await r.json(); joinRoom(c); }
+  catch (e) { $("home-msg").textContent = "Couldn't reach the game server. Check your internet connection and try again."; }
+}
+function leaveGame() {
+  leaving = true; clearTimeout(wsTimer); clearInterval(pingTimer); clearTimeout(cpuTimer);
+  if (ws) { try { ws.send('{"type":"leave"}'); ws.close(); } catch (e) {} }
+  cpuGame = false; autoDeal = null;
+  ws = null; mode = "home"; view = null; pst = null;
+  history.replaceState(null, "", location.pathname);
+  $("game").hidden = true; $("home").hidden = false; $("score").textContent = ""; $("home-msg").textContent = "";
+  say("Left the game.");
+}
+// Practice games run on the game server, so wins against the computer count on the leaderboards.
+async function startPractice() {
+  store.set("cc-name", myName());
+  $("home-msg").textContent = "Setting up a game against the computer…";
+  try {
+    const r = await fetch("/api/hr/new");
+    const { code: c } = await r.json();
+    code = c; cpuGame = true; autoDeal = { t: "deal" };
+    mode = "practice"; leaving = false; view = null; lastEvn = null;
+    showGame(); $("banner").textContent = "Setting up your game…";
+    connect();
+  } catch (e) { $("home-msg").textContent = "Couldn't reach the game server. Check your internet connection and try again."; }
+}
+// Offline practice (used for testing without the server).
+function startLocalPractice() {
+  mode = "practice"; lastEvn = null;
+  pst = newTable();
+  pst.seats = [{ name: myName() || "You", token: "me" }, { name: "The computer", token: "cpu" }];
+  applyAction(pst, 0, { t: "deal" });
+  showGame(); showPractice();
+}
+function showPractice() {
+  view = viewFor(pst, 0, [true, true]);
+  render();
+  clearTimeout(cpuTimer);
+  if (pst.status === "playing" && pst.turn === 1) cpuTimer = setTimeout(() => {
+    if (mode !== "practice" || !pst || pst.status !== "playing" || pst.turn !== 1) return;
+    const a = cpuAction(pst, 1); if (a) applyAction(pst, 1, a);
+    showPractice();
+  }, 900);
+}
+window.__hrLocal = startLocalPractice;
+function showGame() { $("home").hidden = true; $("game").hidden = false; $("banner").setAttribute("tabindex", "-1"); $("banner").focus(); }
+
+// ---------- render ----------
+function button(label, onClick, cls, disabled, why) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "btn" + (cls ? " " + cls : ""); b.textContent = label;
+  if (disabled) b.setAttribute("aria-disabled", "true");
+  b.addEventListener("click", () => { if (b.getAttribute("aria-disabled") !== "true") onClick(); else if (why) problem(why); });
+  return b;
+}
+const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+function die(v, who, small, rolling) {
+  const d = document.createElement("span");
+  d.className = "die" + (who === 2 ? "" : " p" + who) + (small ? " sm" : "") + (rolling ? " rolling" : "");
+  d.setAttribute("aria-hidden", "true");
+  for (let k = 0; k < 9; k++) { const p = document.createElement("i"); if (PIPS[v].includes(k)) p.style.visibility = "visible"; d.append(p); }
+  return d;
+}
+function renderRoom() {
+  $("room").hidden = mode !== "online";
+  if (mode !== "online") return;
+  $("room-code").textContent = code;
+  $("room-code").setAttribute("aria-label", "Game code: " + code.split("").join(" "));
+  const acts = $("room-actions"); acts.replaceChildren();
+  const link = location.origin + location.pathname + "#" + code;
+  if (navigator.share) acts.append(button("Send invite", async () => { try { await navigator.share({ title: "High Rollers", text: "Play High Rollers with me! Game code " + code, url: link }); } catch (e) {} }, "primary"));
+  acts.append(button("Copy invite link", async () => {
+    try { await navigator.clipboard.writeText(link); say("Invite link copied."); }
+    catch (e) { say("Couldn't copy. The game code is " + code.split("").join(" ") + "."); }
+  }));
+}
+function renderLobby() {
+  const seats = $("seats"); seats.replaceChildren();
+  for (let i = 0; i < 2; i++) {
+    const box = document.createElement("div"); box.className = "seat";
+    const label = document.createElement("strong");
+    const here = view.present[i], on = mode === "practice" || view.connected[i];
+    label.textContent = !here ? "Waiting for a player" : (i === view.you ? "You" : nameOf(i));
+    const st = document.createElement("span"); st.className = "muted";
+    if (here) {
+      const dot = document.createElement("span"); dot.className = "dot" + (on ? " on" : ""); dot.setAttribute("aria-hidden", "true");
+      st.append(dot, document.createTextNode(on ? "Connected" : "Not connected right now"));
+    } else st.textContent = "Open seat";
+    box.append(label, st); seats.append(box);
+  }
+  const end = view.events.find((e) => e.t === "end");
+  $("result").textContent = view.status === "over" && end ? eventText(end) : "";
+  const acts = $("lobby-actions"); acts.replaceChildren();
+  if (view.you >= 0 && view.present[0] && view.present[1] && view.status !== "playing")
+    acts.append(button(view.status === "over" ? "Play again" : "Start the game", () => act({ t: "deal" }), "primary"));
+  acts.append(button(mode === "practice" ? "Leave practice" : "Leave game", leaveGame));
+}
+function renderRoll(rolledNow) {
+  const mine = myTurn();
+  const roller = view.turn;
+  $("roll-h").textContent = mine ? "Your roll" : view.turn != null ? nameOf(roller) + "'s roll" : "Roll";
+  const groups = $("groups"); groups.replaceChildren();
+  const acts = $("roll-actions"); acts.replaceChildren();
+  const left = roller != null ? view.left[roller][0] + view.left[roller][1] : 0;
+  if (view.phase === "roll") {
+    $("roll-text").textContent = mine ? "Roll your " + count(left, "die", "dice") + "." : nameOf(roller) + " is about to roll " + count(left, "die", "dice") + ".";
+    if (view.you >= 0) acts.append(button("Roll the dice", () => act({ t: "roll" }), "primary", !mine, "Wait for your turn."));
+    return;
+  }
+  if (view.phase !== "place" || !view.roll) { $("roll-text").textContent = ""; return; }
+  $("roll-text").textContent = (mine ? "You rolled " : nameOf(roller) + " rolled ") + rollWords(view.roll) + "." + (mine ? " Choose a number: all dice showing it go to that casino." : "");
+  for (let v = 1; v <= 6; v++) {
+    const ds = view.roll.filter((d) => d.v === v);
+    if (!ds.length) continue;
+    const own = ds.filter((d) => !d.h).length, house = ds.length - own;
+    const g = document.createElement("div"); g.className = "group";
+    const row = document.createElement("div"); row.className = "dice-row";
+    ds.forEach((d) => row.append(die(v, d.h ? 2 : roller, false, rolledNow)));
+    const c = view.casinos[v - 1];
+    const what = (own ? plural(v, own) : "") + (own && house ? " and " : "") + (house ? count(house, "house die", "house dice") : "");
+    const label = "Place " + what + " on casino " + v + ". It has " + billsText(c.bills) + "; dice there: " + standing(c.dice) + ".";
+    if (mine) {
+      const b = button("Casino " + v + ": place " + what, () => act({ t: "place", v }), "primary");
+      b.setAttribute("aria-label", label);
+      g.append(row, b);
+    } else {
+      const s = document.createElement("span"); s.textContent = what; g.append(row, s);
+    }
+    groups.append(g);
+  }
+}
+function renderCasinos() {
+  const strip = $("strip"); strip.replaceChildren();
+  const rolled = view.phase === "place" && view.roll ? new Set(view.roll.map((d) => d.v)) : new Set();
+  const order = view.you >= 0 ? [view.you, 1 - view.you, 2] : [0, 1, 2];
+  view.casinos.forEach((c, i) => {
+    const li = document.createElement("li"); li.className = "casino" + (rolled.has(i + 1) ? " hot" : "");
+    const h = document.createElement("h3"); h.append(die(i + 1, 2, true), document.createTextNode("Casino " + (i + 1)));
+    const bills = document.createElement("div"); bills.className = "bills";
+    for (const b of c.bills) { const s = document.createElement("span"); s.className = "bill"; s.textContent = money(b); bills.append(s); }
+    const sr = document.createElement("p"); sr.className = "sr-only"; sr.textContent = "Cash: " + billsText(c.bills) + ". Dice: " + standing(c.dice) + ". " + leaderText(c);
+    const stacks = document.createElement("div"); stacks.className = "stacks"; stacks.setAttribute("aria-hidden", "true");
+    for (const who of order) {
+      if (!c.dice[who]) continue;
+      const s = document.createElement("div"); s.className = "stack";
+      const w = document.createElement("span"); w.className = "who"; w.textContent = who === 2 ? "House" : who === view.you ? "You" : nameOf(who);
+      s.append(w);
+      for (let k = 0; k < c.dice[who]; k++) s.append(die(i + 1, who, true));
+      stacks.append(s);
+    }
+    bills.setAttribute("aria-hidden", "true");
+    const lead = document.createElement("div"); lead.className = "lead"; lead.setAttribute("aria-hidden", "true"); lead.textContent = leaderText(c);
+    li.append(h, sr, bills, stacks, lead); strip.append(li);
+  });
+  $("casino-h").textContent = "Casinos, round " + view.round + " of " + ROUNDS;
+}
+function renderMoney() {
+  const box = $("money"); box.replaceChildren();
+  for (const p of view.you >= 0 ? [view.you, 1 - view.you] : [0, 1]) {
+    const s = document.createElement("div"); s.className = "seat" + (p === 1 ? " s1" : "");
+    const n = document.createElement("strong"); n.textContent = p === view.you ? "You" : nameOf(p);
+    const c = document.createElement("div"); c.className = "cashbig"; c.textContent = money(view.cash[p]);
+    const [own, house] = view.left[p];
+    const d = document.createElement("span"); d.className = "muted";
+    d.textContent = view.phase === "roundover" || view.status === "over" ? count(view.bills[p], "bill", "bills") + " won" : count(own, "die", "dice") + " and " + count(house, "house die", "house dice") + " left";
+    s.append(n, c, d); box.append(s);
+  }
+}
+function renderPayout() {
+  const show = !!view.payout && (view.phase === "roundover" || view.status === "over");
+  $("payout-panel").hidden = !show;
+  if (!show) { $("payout").replaceChildren(); $("payout-actions").replaceChildren(); return; }
+  const pe = view.events.find((e) => e.t === "payout");
+  $("payout-h").textContent = "Round " + (pe ? pe.round : view.round) + " payout";
+  const ul = $("payout"); ul.replaceChildren();
+  for (const r of view.payout) { const li = document.createElement("li"); li.textContent = payoutLine(r); ul.append(li); }
+  const acts = $("payout-actions"); acts.replaceChildren();
+  if (view.status === "playing" && view.you >= 0) acts.append(button("Next round (" + (view.round + 1) + " of " + ROUNDS + ")", () => act({ t: "next" }), "primary"));
+}
+function renderLog() {
+  const log = $("log"); log.replaceChildren();
+  for (const ev of view.events.slice(0, 10)) { const t = eventText(ev); if (!t || ev.t === "turn") continue; const li = document.createElement("li"); li.textContent = t; log.append(li); }
+}
+function bannerText() {
+  if (view.you < 0) return "This game already has two players. You can watch, but not play.";
+  if (view.status === "waiting") return view.present[0] && view.present[1] ? "Both players are here. Start the game when you're ready." : "Waiting for your partner to join with code " + code + ".";
+  if (view.status === "over") { const e = view.events.find((x) => x.t === "end"); return e ? eventText(e) : "Game over."; }
+  if (view.phase === "roundover") return "Round " + view.round + " is over. Hear the payout, then choose Next round.";
+  if (!myTurn()) return nameOf(view.turn) + "'s turn. Round " + view.round + " of " + ROUNDS + ".";
+  return "Your turn. Round " + view.round + " of " + ROUNDS + ". " + (view.phase === "roll" ? "Roll the dice." : "Pick a number to place.");
+}
+function render() {
+  if (!view) return;
+  const playing = view.status === "playing" || view.status === "over";
+  renderRoom();
+  $("lobby").hidden = view.status === "playing";
+  for (const id of ["casino-panel", "money-panel", "log-panel"]) $(id).hidden = !playing;
+  $("roll-panel").hidden = !(view.status === "playing" && view.phase !== "roundover");
+  renderLobby();
+  $("score").textContent = view.present[0] && view.present[1] ? "Games won: " + nameOf(0) + " " + view.wins[0] + ", " + nameOf(1) + " " + view.wins[1] : "";
+  const banner = $("banner");
+  banner.textContent = bannerText();
+  banner.classList.toggle("mine", myTurn());
+  $("msg").textContent = "";
+  let fresh = [];
+  if (lastEvn !== null && view.evn > lastEvn) fresh = view.events.filter((e) => e.n > lastEvn).sort((a, b) => a.n - b.n);
+  if (playing) { renderRoll(fresh.some((e) => e.t === "roll")); renderCasinos(); renderMoney(); renderPayout(); renderLog(); }
+  if (lastEvn === null) { lastEvn = view.evn; say(banner.textContent); }
+  else if (fresh.length) {
+    lastEvn = view.evn;
+    say(fresh.map(eventText).filter(Boolean).join(" "));
+    const sounds = [].concat(...fresh.map(eventSounds));
+    if (fresh.some((e) => e.t === "turn" && e.s === view.you)) sounds.push("turn");
+    playSounds(sounds.slice(0, 3));
+  }
+}
+
+// ---------- home ----------
+$("name-input").value = store.get("cc-name") || "";
+$("create-btn").addEventListener("click", createRoom);
+$("join-btn").addEventListener("click", () => joinRoom($("code-input").value));
+$("code-input").addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom($("code-input").value); });
+$("practice-btn").addEventListener("click", startPractice);
+const fromLink = location.hash.replace("#", "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+if (fromLink) {
+  $("code-input").value = fromLink;
+  if (store.get("cc-name")) joinRoom(fromLink);
+  else $("home-msg").textContent = "You've been invited to game " + fromLink + ". Type your name, then choose Join game.";
+}
+</script>
+</body>
+</html>

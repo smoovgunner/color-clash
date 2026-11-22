@@ -225,7 +225,7 @@ button.pc.selected { transform: translateY(-14px); box-shadow: 0 0 0 4px var(--g
     <h1><span class="c7">Rum</span><span class="c8">my</span></h1>
     <div class="row"><div class="score" id="score"></div><button type="button" class="btn small" id="sound-btn" aria-pressed="true">Sound on</button></div>
   </header>
-  <nav class="games" aria-label="EvenPlay games"><a href="/">All games</a> <a href="/leaderboards/">Leaderboards</a> <span class="muted">More games:</span> <a href="/color-clash/">Color Clash</a> <a href="/letter-flip/">Letter Flip</a> <a href="/deal-rush/">Deal Rush</a> <a href="/dice-dash/">Dice Dash</a> <a href="/survey-showdown/">Survey Showdown</a></nav>
+  <nav class="games" aria-label="EvenPlay games"><a href="/">All games</a> <a href="/leaderboards/">Leaderboards</a> <span class="muted">More games:</span> <a href="/color-clash/">Color Clash</a> <a href="/letter-flip/">Letter Flip</a> <a href="/deal-rush/">Deal Rush</a> <a href="/dice-dash/">Dice Dash</a> <a href="/survey-showdown/">Survey Showdown</a> <a href="/high-rollers/">High Rollers</a></nav>
 
   <div id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
@@ -290,6 +290,7 @@ button.pc.selected { transform: translateY(-14px); box-shadow: 0 0 0 4px var(--g
       <section id="mine" class="panel" hidden aria-labelledby="mine-h">
         <h2 id="mine-h">Your hand</h2>
         <p id="select-text" class="muted" style="margin:0"></p>
+        <div class="row" style="margin-top:10px"><button type="button" class="btn small" id="sort-btn"></button></div>
         <div class="hand" id="hand" role="group" aria-labelledby="mine-h"></div>
         <div class="row" style="margin-top:14px" id="actions"></div>
         <p class="hint" id="hint-text" aria-live="polite"></p>
@@ -694,16 +695,37 @@ function renderMelds() {
     list.append(li);
   }
 }
+// Hand order: lowest to highest (the default), highest to lowest, or grouped by suit.
+const SORTS = { low: "lowest to highest", high: "highest to lowest", suit: "by suit" };
+let handSort = "low";
+try { handSort = SORTS[localStorage.getItem("rm-sort")] ? localStorage.getItem("rm-sort") : "low"; } catch (e) {}
+const RANK_ORDER = "A23456789TJQK", SUIT_ORDER = "SHDC";
+function orderedHand() {
+  const r = (c) => RANK_ORDER.indexOf(c[0]), s = (c) => SUIT_ORDER.indexOf(c[1]);
+  const h = view.hand.slice();
+  if (handSort === "suit") return h.sort((a, b) => s(a) - s(b) || r(a) - r(b));
+  if (handSort === "high") return h.sort((a, b) => r(b) - r(a) || s(a) - s(b));
+  return h.sort((a, b) => r(a) - r(b) || s(a) - s(b));
+}
+function renderSortBtn() { $("sort-btn").textContent = "Sort: " + SORTS[handSort]; }
+$("sort-btn").addEventListener("click", () => {
+  handSort = handSort === "low" ? "high" : handSort === "high" ? "suit" : "low";
+  try { localStorage.setItem("rm-sort", handSort); } catch (e) {}
+  renderSortBtn();
+  if (view && view.hand) { renderHand(); say("Hand sorted " + SORTS[handSort] + ". " + orderedHand().map(cardName).join(", ") + "."); }
+});
+renderSortBtn();
 function renderHand() {
   const hand = $("hand");
   for (const c of [...selected]) if (!view.hand.includes(c)) selected.delete(c);
-  const key = view.hand.join(",");
+  const cards = orderedHand();
+  const key = cards.join(",");
   const active = document.activeElement;
   const focusedId = hand.contains(active) ? active.dataset.id : null;
   const focusedIdx = focusedId ? [...hand.children].indexOf(active) : -1;
   if (hand.dataset.key !== key) {
     hand.replaceChildren();
-    for (const c of view.hand) {
+    for (const c of cards) {
       const b = cardEl(c, "button");
       b.type = "button"; b.dataset.id = c; b.setAttribute("aria-label", cardName(c));
       b.addEventListener("click", () => {

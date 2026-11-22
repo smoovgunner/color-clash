@@ -5,6 +5,7 @@
 //   Deal Rush:    GET /api/dr/new -> { code }, GET /api/dr/room/<CODE> -> WebSocket
 //   Dice Dash:    GET /api/dd/new -> { code }, GET /api/dd/room/<CODE> -> WebSocket
 //   Survey Showdown: GET /api/ss/new -> { code }, GET /api/ss/room/<CODE> -> WebSocket
+//   High Rollers: GET /api/hr/new -> { code }, GET /api/hr/room/<CODE> -> WebSocket
 import { DurableObject } from "cloudflare:workers";
 import * as colorClash from "../public/color-clash/game.js";
 import * as letterFlip from "../public/letter-flip/rules.js";
@@ -12,6 +13,7 @@ import * as rummy from "../public/rummy/rules.js";
 import * as dealRush from "../public/deal-rush/rules.js";
 import * as diceDash from "../public/dice-dash/rules.js";
 import * as survey from "../public/survey-showdown/rules.js";
+import * as highRollers from "../public/high-rollers/rules.js";
 
 const WORDS = [
   "TIGER", "MANGO", "COMET", "LUCKY", "OCEAN", "PEACH", "ROCKET", "SUNNY", "MAPLE", "JAZZY",
@@ -29,7 +31,7 @@ const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
 // Leaderboard games and their short names.
-const GAMES = { cc: "Color Clash", lf: "Letter Flip", rm: "Rummy", dr: "Deal Rush", dd: "Dice Dash", ss: "Survey Showdown" };
+const GAMES = { cc: "Color Clash", lf: "Letter Flip", rm: "Rummy", dr: "Deal Rush", dd: "Dice Dash", ss: "Survey Showdown", hr: "High Rollers" };
 // SHA-256 of the admin password. The password itself is never stored here.
 const ADMIN_HASH = "5ca2cc9864014fa43bdc0fcb376d6851c68bc8dbf0226dc5b9d1ba86afeea571";
 const PLAYER_RE = /^[A-Z2-9]{12}$/;
@@ -56,11 +58,11 @@ export default {
     if (url.pathname.startsWith("/api/board") || url.pathname.startsWith("/api/admin")) {
       return env.BOARD.get(env.BOARD.idFromName("main")).fetch(req);
     }
-    if (/^\/api\/((lf|rm|dr|dd|ss)\/)?new$/.test(url.pathname)) return json({ code: makeCode() });
-    const m = url.pathname.match(/^\/api\/(?:(lf|rm|dr|dd|ss)\/)?room\/([A-Z0-9]{3,16})$/);
+    if (/^\/api\/((lf|rm|dr|dd|ss|hr)\/)?new$/.test(url.pathname)) return json({ code: makeCode() });
+    const m = url.pathname.match(/^\/api\/(?:(lf|rm|dr|dd|ss|hr)\/)?room\/([A-Z0-9]{3,16})$/);
     if (m) {
       if (req.headers.get("Upgrade") !== "websocket") return json({ error: "Expected a WebSocket" }, 426);
-      const ns = { lf: env.LF_ROOMS, rm: env.RM_ROOMS, dr: env.DR_ROOMS, dd: env.DD_ROOMS, ss: env.SS_ROOMS }[m[1]] || env.ROOMS;
+      const ns = { lf: env.LF_ROOMS, rm: env.RM_ROOMS, dr: env.DR_ROOMS, dd: env.DD_ROOMS, ss: env.SS_ROOMS, hr: env.HR_ROOMS }[m[1]] || env.ROOMS;
       return ns.get(ns.idFromName(m[2])).fetch(req);
     }
     return env.ASSETS.fetch(req);
@@ -260,6 +262,10 @@ export class SurveyRoom extends Room {
 // ---------------- leaderboards ----------------
 // One record per player per game per mode ("pvp" or "cpu"):  e:<game>:<mode>:<player> -> {name, cur, best, wins, losses, t}
 // Removed players: ban:<player>
+export class CasinoRoom extends Room {
+  constructor(ctx, env) { super(ctx, env, highRollers, "hr"); }
+}
+
 export class Board extends DurableObject {
   async fetch(req) {
     const url = new URL(req.url);
