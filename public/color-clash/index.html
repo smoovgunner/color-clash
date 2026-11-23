@@ -209,7 +209,8 @@ footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
       <button type="button" class="btn" id="join-btn">Join game</button>
       <button type="button" class="btn primary" id="match-btn">Play someone new</button>
       <button type="button" class="btn" id="practice-btn">Practice against the computer</button>
-      <button type="button" class="btn" id="house-home" aria-pressed="false">House rules (stacking and draw wars): Off</button>
+      <button type="button" class="btn" id="stack-home" aria-pressed="false">House rule, stacking: Off</button>
+      <button type="button" class="btn" id="war-home" aria-pressed="false">House rule, draw wars: Off</button>
     </div>
     <p class="muted" id="home-msg" style="margin:0"></p>
   </section>
@@ -271,7 +272,7 @@ footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
         <li>Draw Two and Wild Draw Four: your opponent draws, and you go again.</li>
         <li>Can't play? Draw a card. If it fits you may play it, or pass.</li>
         <li>First to empty their hand wins the round.</li>
-        <li>House rules (optional, switch them on before dealing): stack all your cards with the same number or symbol in one turn, like three 3s at once. And draw cards start a draw war: when a Draw Two or Wild Draw Four is played on you, answer with one of your own to pass the cards back. The first player who can't answer takes them all and loses their turn.</li>
+        <li>House rules (optional, switch each on before dealing). Stacking: play all your cards with the same number or symbol in one turn, like three 3s at once. Draw wars: when a Draw Two is played on you, answer with your own Draw Two to pass the cards back, and the same with Wild Draw Fours. A Draw Two war takes only Draw Twos, and a Wild Draw Four war takes only Wild Draw Fours. The first player who can't answer takes them all and loses their turn.</li>
         <li>Screen reader tip: each card is a button. Cards you can't play right now say "can't play". Every move is announced, and each part of the table has its own heading.</li>
         <li>Sound effects play for each move, and a chime plays when it's your turn. The Sound button at the top turns them off.</li>
       </ul>
@@ -304,7 +305,7 @@ footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
 
 <script type="module">
 import { useSamples } from "/sounds/samples.js";
-import { COLORS, VALS, cardName, newTable, applyAction, viewFor, cpuAction, isDrawCard } from "./game.js";
+import { COLORS, VALS, cardName, newTable, applyAction, viewFor, cpuAction, WAR_CARD } from "./game.js";
 
 const GLYPH = { S: "⊘", R: "⇄", D: "+2", W: "", F: "+4" };
 const ORDER = "rygbw", VORDER = "0123456789SRDWF";
@@ -413,7 +414,7 @@ function nameOf(seat) {
 function eventText(ev) {
   const who = nameOf(ev.s), opp = nameOf(1 - ev.s), mine = ev.s === view.you;
   switch (ev.t) {
-    case "deal": return "New round dealt" + (ev.house ? " with house rules: stacking and draw wars are on" : "") + ". " + who + (mine ? " go first." : " goes first.") + " The first card is " + cardName(ev.card) + ".";
+    case "deal": return "New round dealt" + (ev.stack || ev.war ? " with house rules: " + [ev.stack && "stacking", ev.war && "draw wars"].filter(Boolean).join(" and ") + " on" : "") + ". " + who + (mine ? " go first." : " goes first.") + " The first card is " + cardName(ev.card) + ".";
     case "take": return (mine ? "You lost the draw war and took " : who + " lost the draw war and took ") + ev.count + " cards." + (mine ? " Your turn is over." : "");
     case "play": {
       const list = ev.cards || [ev.card];
@@ -421,9 +422,9 @@ function eventText(ev) {
       const v = ev.card[1];
       const pen = list.reduce((n, c) => n + (c[1] === "D" ? 2 : c[1] === "F" ? 4 : 0), 0);
       if (list[list.length - 1][0] === "w" || list.length > 1) s += " The color is now " + COLORS[ev.color] + ".";
-      if (ev.house && pen) s += " Draw war! " + opp + (opp === "You" ? " owe " : " owes ") + ev.owe + " cards" + (opp === "You" ? ": play a Draw Two or Wild Draw Four to pass them back, or take them." : ".");
-      else if (pen) s += " " + opp + (opp === "You" ? " draw " : " draws ") + pen + ".";
-      if ("SRDF".includes(v) && !(ev.house && pen)) s += " " + who + (mine ? " go again." : " goes again.");
+      if (ev.war && pen && ev.left) s += " Draw war! " + opp + (opp === "You" ? " owe " : " owes ") + ev.owe + " cards" + (opp === "You" ? ": play a " + WAR_CARD[ev.warType] + " to pass them back, or take them." : ".");
+      else if (pen && !ev.war) s += " " + opp + (opp === "You" ? " draw " : " draws ") + pen + ".";
+      if ("SRDF".includes(v) && !(ev.war && pen) && ev.left) s += " " + who + (mine ? " go again." : " goes again.");
       if (ev.left === 1) s += " " + who + (mine ? " have" : " has") + " one card left!";
       return s;
     }
@@ -467,7 +468,7 @@ function fitsView(id) {
 }
 function playableNow(id) {
   if (!view || view.status !== "playing" || view.turn !== view.you) return false;
-  if (view.owe) return isDrawCard(id);
+  if (view.owe) return id[1] === view.warType;
   if (view.drawn) return id === view.drawn && fitsView(id);
   return fitsView(id);
 }
@@ -500,8 +501,8 @@ function act(action) {
   }
 }
 function play(id) {
-  if (!playableNow(id)) { if (view && view.owe && view.turn === view.you) say("Draw war! Only a Draw Two or Wild Draw Four can answer. Or choose Take " + view.owe + " cards."); return; }
-  const partners = view.house && !view.drawn ? view.hand.filter((c) => c !== id && c[1] === id[1]) : [];
+  if (!playableNow(id)) { if (view && view.owe && view.turn === view.you) say("Draw war! Only a " + WAR_CARD[view.warType] + " can answer. Or choose Take " + view.owe + " cards."); return; }
+  const partners = view.stack && !view.drawn ? view.hand.filter((c) => c !== id && c[1] === id[1]) : [];
   if (partners.length) { openStacker(id, partners); return; }
   if (id[0] === "w") { openPicker(id); return; }
   act({ t: "play", card: id });
@@ -626,7 +627,7 @@ async function startPractice(m) {
   try {
     const r = await fetch("/api/new");
     const { code: c } = await r.json();
-    code = c; cpuGame = true; autoDeal = { t: "deal", house: housePref() };
+    code = c; cpuGame = true; autoDeal = { t: "deal", stack: pref("stack"), war: pref("war") };
     mode = "practice"; leaving = false; view = null; lastEvn = null;
     showGame(); $("banner").textContent = "Setting up your game…";
     connect();
@@ -707,7 +708,16 @@ function renderRoom() {
   }));
 }
 
-const housePref = () => store.get("cc-house") === "on";
+// House rule switches, remembered on this device. The player who deals decides.
+const pref = (k) => store.get("cc-" + k) === "on";
+if (store.get("cc-house") === "on" && store.get("cc-stack") === null) { store.set("cc-stack", "on"); store.set("cc-war", "on"); }
+const RULE = { stack: "stacking", war: "draw wars" };
+const ruleLabel = (k) => "House rule, " + RULE[k] + ": " + (pref(k) ? "On" : "Off");
+function flipRule(k) {
+  store.set("cc-" + k, pref(k) ? "off" : "on");
+  return k === "stack" ? (pref(k) ? "Stacking on: play all your cards of the same number or symbol at once." : "Stacking off.")
+    : (pref(k) ? "Draw wars on: answer a Draw Two with a Draw Two, or a Wild Draw Four with a Wild Draw Four." : "Draw wars off.");
+}
 function renderLobby() {
   const seats = $("seats"); seats.replaceChildren();
   for (let i = 0; i < 2; i++) {
@@ -727,9 +737,11 @@ function renderLobby() {
   const acts = $("lobby-actions"); acts.replaceChildren();
   if (view.you >= 0 && view.present[0] && view.present[1] && view.status !== "playing")
   {
-    acts.append(button(view.status === "over" ? "Deal next round" : "Deal the cards", () => act({ t: "deal", house: housePref() }), "primary"));
-    const h = button("House rules (stacking and draw wars): " + (housePref() ? "On" : "Off"), () => { store.set("cc-house", housePref() ? "off" : "on"); renderLobby(); say("House rules " + (housePref() ? "on: stack matching cards, and draw cards start a draw war." : "off: official rules.")); });
-    h.setAttribute("aria-pressed", housePref() ? "true" : "false"); acts.append(h);
+    acts.append(button(view.status === "over" ? "Deal next round" : "Deal the cards", () => act({ t: "deal", stack: pref("stack"), war: pref("war") }), "primary"));
+    for (const k of ["stack", "war"]) {
+      const h = button(ruleLabel(k), () => { const msg = flipRule(k); renderLobby(); say(msg); });
+      h.setAttribute("aria-pressed", pref(k) ? "true" : "false"); acts.append(h);
+    }
   }
   acts.append(button(mode === "practice" ? "Leave practice" : "Leave game", leaveGame));
 }
@@ -756,7 +768,7 @@ function renderHand() {
   const myTurn = view.status === "playing" && view.turn === view.you;
   for (const b of hand.querySelectorAll("button.card")) {
     const id = b.dataset.id, ok = playableNow(id);
-    const twins = view.house ? view.hand.filter((c) => c !== id && c[1] === id[1]).length : 0;
+    const twins = view.stack ? view.hand.filter((c) => c !== id && c[1] === id[1]).length : 0;
     b.setAttribute("aria-label", cardName(id) + (myTurn ? (ok ? ", playable" + (twins ? ", can stack " + (twins + 1) : "") : ", can't play") : "") + (view.drawn === id ? ", just drawn" : ""));
     b.setAttribute("aria-disabled", ok ? "false" : "true");
     b.classList.toggle("can", myTurn && ok);
@@ -827,7 +839,7 @@ function render() {
   else if (view.status === "waiting") banner.textContent = view.present[0] && view.present[1] ? "Both players are here. Deal the cards to start." : publicGame ? "Looking for another player. Stay on this page: you'll hear a chime when someone joins. Or leave and practice against the computer." : "Waiting for your partner to join with code " + code + ".";
   else if (view.status === "over") banner.textContent = (view.winner === view.you ? "You win the round!" : nameOf(view.winner) + " wins the round!") + " Deal the next round when you're ready.";
   else {
-    banner.textContent = turnText() + (view.owe && view.turn === view.you ? " Draw war! You owe " + view.owe + " cards. Play a Draw Two or Wild Draw Four to pass them back, or take them." : view.owe ? " Draw war: " + view.owe + " cards on the line." : "") + (view.drawn && view.turn === view.you ? " Play the card you drew, or pass." : "");
+    banner.textContent = turnText() + (view.owe && view.turn === view.you ? " Draw war! You owe " + view.owe + " cards. Play a " + WAR_CARD[view.warType] + " to pass them back, or take them." : view.owe ? " Draw war: " + view.owe + " cards on the line." : "") + (view.drawn && view.turn === view.you ? " Play the card you drew, or pass." : "");
     if (view.turn === view.you) banner.classList.add("mine");
   }
   if (playing) { renderOpp(); renderTable(); renderHand(); renderLog(); }
@@ -864,9 +876,11 @@ async function quickMatch() {
   } catch (e) { $("home-msg").textContent = "Couldn't reach the game server. Check your internet connection and try again."; }
 }
 $("match-btn").addEventListener("click", quickMatch);
-function renderHouseHome() { const b = $("house-home"); b.textContent = "House rules (stacking and draw wars): " + (housePref() ? "On" : "Off"); b.setAttribute("aria-pressed", housePref() ? "true" : "false"); }
-$("house-home").addEventListener("click", () => { store.set("cc-house", housePref() ? "off" : "on"); renderHouseHome(); $("home-msg").textContent = housePref() ? "House rules on: stack matching cards, and draw cards start a draw war. Applies to games you deal." : "House rules off: official rules."; });
-renderHouseHome();
+function renderRulesHome() {
+  for (const k of ["stack", "war"]) { const b = $(k + "-home"); b.textContent = ruleLabel(k); b.setAttribute("aria-pressed", pref(k) ? "true" : "false"); }
+}
+for (const k of ["stack", "war"]) $(k + "-home").addEventListener("click", () => { $("home-msg").textContent = flipRule(k) + " Applies to games you deal."; renderRulesHome(); });
+renderRulesHome();
 
 $("name-input").value = store.get("cc-name") || "";
 $("create-btn").addEventListener("click", createRoom);

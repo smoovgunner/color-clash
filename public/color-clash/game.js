@@ -44,13 +44,15 @@ export function fits(id, st) {
 }
 
 // House rules (optional, chosen when dealing): play all your cards of one number or symbol at once,
-// and draw cards start a draw war: answer a Draw Two or Wild Draw Four with another, or take the whole pile of owed cards.
+// and draw wars: answer a Draw Two with a Draw Two (or a Wild Draw Four with a Wild Draw Four), or take the whole pile.
+// Each is switched on separately: st.stack and st.war.
 export const isDrawCard = (id) => id[1] === "D" || id[1] === "F";
+export const WAR_CARD = { D: "Draw Two", F: "Wild Draw Four" };
 
 export function canPlay(st, seat, id) {
   if (st.status !== "playing" || st.turn !== seat) return false;
   if (!st.hands[seat].includes(id)) return false;
-  if (st.owe) return isDrawCard(id);
+  if (st.owe) return id[1] === st.warType;
   if (st.drawn) return id === st.drawn && fits(id, st);
   return fits(id, st);
 }
@@ -75,8 +77,8 @@ function addEvent(st, ev) {
 
 /**
  * Apply one move for the player in `seat`. Changes `st` in place.
- * action: {t:"deal", house?} | {t:"play", card, cards?, color} | {t:"draw"} | {t:"pass"}
- * With house rules, `cards` lists several cards of the same number or symbol, played in that order.
+ * action: {t:"deal", stack?, war?} | {t:"play", card, cards?, color} | {t:"draw"} | {t:"pass"}
+ * With stacking on, `cards` lists several cards of the same number or symbol, played in that order.
  * Returns null when the move was made, or a sentence saying why it couldn't be.
  */
 export function applyAction(st, seat, action) {
@@ -92,12 +94,14 @@ export function applyAction(st, seat, action) {
     let first = deck.pop();
     while (first[0] === "w" || !/\d/.test(first[1])) { deck.unshift(first); first = deck.pop(); }
     const starter = st.nextStarter ?? 0;
-    if (typeof action.house === "boolean") st.house = action.house;
+    if (typeof action.house === "boolean") { st.stack = action.house; st.war = action.house; }
+    if (typeof action.stack === "boolean") st.stack = action.stack;
+    if (typeof action.war === "boolean") st.war = action.war;
     Object.assign(st, {
       status: "playing", deck, hands, discard: [first], color: first[0],
-      turn: starter, drawn: null, winner: null, nextStarter: 1 - starter, owe: 0,
+      turn: starter, drawn: null, winner: null, nextStarter: 1 - starter, owe: 0, warType: null,
     });
-    addEvent(st, { t: "deal", s: starter, card: first, house: !!st.house });
+    addEvent(st, { t: "deal", s: starter, card: first, stack: !!st.stack, war: !!st.war });
     return null;
   }
 
@@ -107,9 +111,9 @@ export function applyAction(st, seat, action) {
   if (t === "play") {
     const cards = Array.isArray(action.cards) && action.cards.length ? action.cards.slice(0, 12) : [action.card];
     const id = cards[0];
-    if (typeof id !== "string" || !canPlay(st, seat, id)) return st.owe ? "Draw war! Play a Draw Two or Wild Draw Four, or take the cards." : "That card can't be played right now.";
+    if (typeof id !== "string" || !canPlay(st, seat, id)) return st.owe ? "Draw war! Only a " + WAR_CARD[st.warType] + " can answer, or take the cards." : "That card can't be played right now.";
     if (cards.length > 1) {
-      if (!st.house) return "Play one card at a time. Stacking is a house rule that's off this round.";
+      if (!st.stack) return "Play one card at a time. Stacking is a house rule that's off this round.";
       if (st.drawn) return "You can only play the card you just drew.";
       const hand = st.hands[seat].slice();
       for (const c of cards) {
@@ -129,14 +133,14 @@ export function applyAction(st, seat, action) {
     st.drawn = null;
     const v = id[1];
     const penalty = cards.reduce((n, c) => n + (c[1] === "D" ? 2 : c[1] === "F" ? 4 : 0), 0);
-    if (penalty && st.house) st.owe = (st.owe || 0) + penalty;
+    if (penalty && st.war) { st.owe = (st.owe || 0) + penalty; st.warType = v; }
     else if (penalty) drawInto(st, 1 - seat, penalty);
-    addEvent(st, { t: "play", s: seat, card: id, cards: cards.length > 1 ? cards.slice() : undefined, color, left: st.hands[seat].length, owe: st.owe || 0, house: !!st.house });
+    addEvent(st, { t: "play", s: seat, card: id, cards: cards.length > 1 ? cards.slice() : undefined, color, left: st.hands[seat].length, owe: st.owe || 0, war: !!st.war, warType: st.warType });
     if (!st.hands[seat].length) {
       st.status = "over";
       st.winner = seat;
       st.wins[seat] += 1;
-      st.owe = 0;
+      st.owe = 0; st.warType = null;
       addEvent(st, { t: "win", s: seat });
     } else if (st.owe) {
       st.turn = 1 - seat; // draw war: the other player answers or takes the cards
@@ -149,7 +153,7 @@ export function applyAction(st, seat, action) {
   if (t === "draw") {
     if (st.owe) {
       // lost the draw war: take every owed card, and the turn goes back to the other player
-      const n = st.owe; st.owe = 0;
+      const n = st.owe; st.owe = 0; st.warType = null;
       drawInto(st, seat, n);
       st.turn = 1 - seat;
       addEvent(st, { t: "take", s: seat, count: n });
@@ -192,7 +196,9 @@ export function viewFor(st, seat, connected) {
     deckCount: playing ? st.deck.length : 0,
     turn: playing ? st.turn : null,
     drawn: playing && st.turn === seat ? st.drawn : null,
-    house: !!st.house,
+    stack: !!st.stack,
+    war: !!st.war,
+    warType: playing ? st.warType || null : null,
     owe: playing ? st.owe || 0 : 0,
     winner: st.winner ?? null,
     wins: st.wins.slice(),
@@ -208,7 +214,7 @@ export function cpuAction(st, seat) {
   for (const c of hand) if (c[0] !== "w") counts[c[0]]++;
   const best = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
   if (st.owe) {
-    const d = hand.filter(isDrawCard).sort((a, b) => (a[1] === "D" ? 0 : 1) - (b[1] === "D" ? 0 : 1))[0];
+    const d = hand.find((c) => c[1] === st.warType);
     return d ? { t: "play", card: d, color: best } : { t: "draw" };
   }
   if (st.drawn) {
@@ -219,7 +225,7 @@ export function cpuAction(st, seat) {
   const rank = (c) => (c[0] === "w" ? (c[1] === "F" ? 4 : 3) : "SRD".includes(c[1]) ? 1 : 0);
   ok.sort((a, b) => rank(a) - rank(b));
   const first = ok[0];
-  if (st.house && first[0] !== "w") {
+  if (st.stack && first[0] !== "w") {
     // stack every card of the same number, ending on the color it holds most of
     const rest = hand.filter((c) => c !== first && c[1] === first[1] && c[0] !== "w").sort((a, b) => counts[a[0]] - counts[b[0]]);
     if (rest.length) return { t: "play", card: first, cards: [first, ...rest], color: best };
