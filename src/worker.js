@@ -370,7 +370,20 @@ export class Board extends DurableObject {
           .sort((a, b) => b.best - a.best || b.cur - a.cur || b.wins - a.wins || a.t - b.t)
           .slice(0, 25).map(({ name, cur, best, wins, losses }) => ({ name, cur, best, wins, losses }));
       };
-      return json({ game, title: GAMES[game], pvp: await top("pvp"), cpu: await top("cpu") });
+      // the simple board: each player's wins against anyone added up, and their longest winning run
+      const all = await S.list({ prefix: "e:" + game + ":" });
+      const people = new Map();
+      for (const [k, e] of all) {
+        const player = k.split(":")[3];
+        const p = people.get(player) || { name: e.name, wins: 0, best: 0, t: 0 };
+        p.wins += e.wins || 0; p.best = Math.max(p.best, e.best || 0);
+        if ((e.t || 0) >= p.t) { p.name = e.name; p.t = e.t || 0; }
+        people.set(player, p);
+      }
+      const list = [...people.values()].filter((p) => p.wins > 0);
+      const most = list.slice().sort((a, b) => b.wins - a.wins || b.best - a.best || a.t - b.t).slice(0, 5).map(({ name, wins }) => ({ name, wins }));
+      const streak = list.slice().sort((a, b) => b.best - a.best || b.wins - a.wins || a.t - b.t).slice(0, 5).map(({ name, best }) => ({ name, best }));
+      return json({ game, title: GAMES[game], most, streak, pvp: await top("pvp"), cpu: await top("cpu") });
     }
 
     if (url.pathname === "/api/board/me") {

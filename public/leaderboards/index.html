@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>EvenPlay Leaderboards</title>
-<meta name="description" content="Win streaks for every EvenPlay game, against other players and against the computer.">
+<meta name="description" content="The top five players in every EvenPlay game: most games won, and most games won in a row.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bungee&display=swap">
 <style>
-/* Leaderboards: the EvenPlay table; one game at a time, two ranked tables. */
+/* Leaderboards: pick a game, see two top-five lists. */
 :root {
   color-scheme: dark;
   --felt: #0f3b3a; --felt-deep: #0a2a29; --rail: #072120;
@@ -19,30 +19,29 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; background: radial-gradient(ellipse at 50% 30%, var(--felt) 0%, var(--felt-deep) 75%) fixed, var(--felt-deep); color: var(--ink); font: 17px/1.5 var(--font-body); }
-.wrap { max-width: 980px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
-h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(32px, 9vw, 52px); line-height: 1.05; margin: 0; }
+body { margin: 0; background: radial-gradient(ellipse at 50% 30%, var(--felt) 0%, var(--felt-deep) 75%) fixed, var(--felt-deep); color: var(--ink); font: 18px/1.5 var(--font-body); }
+.wrap { max-width: 760px; margin: 0 auto; padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(32px, 9vw, 50px); line-height: 1.05; margin: 0; }
 h1 span { color: var(--gold); }
-h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); margin: 0 0 10px; }
-h3 { margin: 0 0 8px; font-size: 20px; }
 a { color: var(--gold); }
-nav { display: flex; gap: 14px; flex-wrap: wrap; font-size: 15px; }
-.panel { background: rgba(0,0,0,0.22); border-radius: 18px; padding: 16px; }
-.picker { display: flex; flex-wrap: wrap; gap: 8px; }
-.btn { font: 700 17px var(--font-body); padding: 10px 16px; min-height: 46px; border-radius: 12px; border: 2px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; }
-.btn.on { background: var(--gold); border-color: var(--gold); color: #1d1503; }
-.btn:focus-visible, input:focus-visible { outline: 4px solid #fff; outline-offset: 2px; }
-.boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-.tbl { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-th, td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.12); text-align: left; }
-thead th { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
-td.n, th.n { text-align: right; }
-tr.r1 td:first-child { color: var(--gold); font-weight: 700; } tr.r2 td:first-child { color: var(--silver); font-weight: 700; } tr.r3 td:first-child { color: var(--bronze); font-weight: 700; }
+nav { display: flex; gap: 14px; flex-wrap: wrap; font-size: 16px; }
+.panel { background: rgba(0,0,0,0.22); border-radius: 18px; padding: 16px 18px; }
+label { font-weight: 700; display: block; margin-bottom: 6px; }
+select { font: 700 20px var(--font-body); padding: 10px 12px; border-radius: 12px; border: 2px solid var(--ink-soft); background: var(--rail); color: var(--ink); min-height: 52px; width: min(100%, 360px); }
+select:focus-visible, .btn:focus-visible, input:focus-visible, summary:focus-visible { outline: 4px solid #fff; outline-offset: 2px; }
+h2 { margin: 0 0 10px; font-size: 22px; color: var(--gold); }
+.boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+ol.top { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; counter-reset: rank; }
+ol.top li { display: flex; align-items: baseline; gap: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.05); counter-increment: rank; font-variant-numeric: tabular-nums; }
+ol.top li::before { content: counter(rank) "."; font-family: var(--font-display); font-size: 20px; min-width: 1.6em; color: var(--ink-soft); }
+ol.top li:nth-child(1)::before { color: var(--gold); } ol.top li:nth-child(2)::before { color: var(--silver); } ol.top li:nth-child(3)::before { color: var(--bronze); }
+ol.top .name { flex: 1; font-weight: 700; overflow-wrap: anywhere; }
+ol.top .num { color: var(--gold); font-weight: 700; white-space: nowrap; }
 .muted { color: var(--ink-soft); }
+details summary { cursor: pointer; font-weight: 700; }
 .code { font-family: var(--font-display); letter-spacing: 0.08em; font-size: 22px; color: var(--gold); }
-.field { display: grid; gap: 6px; max-width: 380px; }
-.field input { font: 700 20px var(--font-body); padding: 10px 12px; border-radius: 12px; border: 2px solid var(--ink-soft); background: var(--rail); color: var(--ink); min-height: 50px; text-transform: uppercase; }
+.field input { font: 700 20px var(--font-body); padding: 10px 12px; border-radius: 12px; border: 2px solid var(--ink-soft); background: var(--rail); color: var(--ink); min-height: 50px; text-transform: uppercase; width: min(100%, 360px); }
+.btn { font: 700 17px var(--font-body); padding: 10px 16px; min-height: 46px; border-radius: 12px; border: 2px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
 </style>
@@ -51,34 +50,40 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
 <main class="wrap">
   <header style="display:grid; gap:10px">
     <h1><span>Even</span>Play Leaderboards</h1>
-    <nav aria-label="EvenPlay"><a href="/">All games</a></nav>
-    <p style="margin:0" class="muted">Longest win streaks for each game. A win adds one to your streak; a loss starts it over. Leaving a game early counts as a loss.</p>
+    <nav aria-label="EvenPlay"><a href="/">All games</a> <a href="/about/">About EvenPlay</a></nav>
   </header>
 
-  <section class="panel" aria-labelledby="pick-h">
-    <h2 id="pick-h">Choose a game</h2>
-    <div class="picker" id="picker"></div>
-  </section>
+  <div class="panel">
+    <label for="game">Choose a game</label>
+    <select id="game"></select>
+  </div>
 
-  <section aria-labelledby="board-h">
-    <h2 id="board-h">Loading…</h2>
-    <div class="boards">
-      <div class="panel"><h3 id="pvp-h">Against players</h3><div class="tbl" id="pvp"></div></div>
-      <div class="panel"><h3 id="cpu-h">Against the computer</h3><div class="tbl" id="cpu"></div></div>
-    </div>
-  </section>
+  <div class="boards" id="boards">
+    <section class="panel" aria-labelledby="most-h">
+      <h2 id="most-h">Most games won overall</h2>
+      <ol class="top" id="most"></ol>
+    </section>
+    <section class="panel" aria-labelledby="streak-h">
+      <h2 id="streak-h">Most games won in a row</h2>
+      <ol class="top" id="streak"></ol>
+    </section>
+  </div>
+  <p id="msg" role="status" class="muted" style="margin:0"></p>
 
-  <section class="panel" aria-labelledby="me-h">
-    <h2 id="me-h">You</h2>
-    <p style="margin:0 0 6px">Your player code: <span class="code" id="my-code"></span></p>
-    <p class="muted" style="margin:0 0 12px">This code is how the leaderboards know it's you. Keep it private. To keep your streaks on another phone or computer, type this code there.</p>
-    <div id="my-stats" style="margin-bottom:14px"></div>
-    <div class="field">
-      <label for="code-input" style="font-weight:700">Use a player code from another device</label>
-      <input id="code-input" type="text" maxlength="14" autocomplete="off" spellcheck="false" placeholder="12 letters and numbers">
-    </div>
-    <div class="row" style="margin-top:10px"><button class="btn" id="use-btn" type="button">Use this code</button><button class="btn" id="copy-btn" type="button">Copy my code</button></div>
-    <p id="me-msg" role="status" style="margin:10px 0 0; font-weight:700; color:var(--gold)"></p>
+  <section class="panel" aria-labelledby="you-h">
+    <details>
+      <summary id="you-h">Your player code</summary>
+      <div style="display:grid; gap:10px; margin-top:12px">
+        <p style="margin:0">Your code: <span class="code" id="my-code"></span></p>
+        <p class="muted" style="margin:0">This code is how the leaderboards know it's you. Keep it private. To keep your wins on another phone or computer, type this code there.</p>
+        <div class="field">
+          <label for="code-input">Use a player code from another device</label>
+          <input id="code-input" type="text" maxlength="14" autocomplete="off" spellcheck="false" placeholder="12 letters and numbers">
+        </div>
+        <div class="row"><button class="btn" id="use-btn" type="button">Use this code</button><button class="btn" id="copy-btn" type="button">Copy my code</button></div>
+        <p id="me-msg" role="status" style="margin:0; font-weight:700; color:var(--gold)"></p>
+      </div>
+    </details>
   </section>
 
   <footer>EvenPlay, made by smoovgunner with Claude.</footer>
@@ -98,68 +103,48 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
     return c;
   }
   const pretty = (c) => c.match(/.{1,4}/g).join("-");
-  let game = (location.hash.slice(1) && GAMES.find((g) => g[0] === location.hash.slice(1))) ? location.hash.slice(1) : (get("ep-board") || "cc");
+  const fromHash = location.hash.slice(1);
+  let game = GAMES.some((g) => g[0] === fromHash) ? fromHash : (get("ep-board") || "cc");
 
-  function picker() {
-    const box = $("picker"); box.replaceChildren();
-    for (const [id, name] of GAMES) {
-      const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (id === game ? " on" : "");
-      b.textContent = name + (id === game ? ", showing" : "");
-      b.addEventListener("click", () => { game = id; set("ep-board", id); history.replaceState(null, "", "#" + id); picker(); load(); $("board-h").focus(); });
-      box.append(b);
+  const sel = $("game");
+  for (const [id, name] of GAMES) { const o = document.createElement("option"); o.value = id; o.textContent = name; sel.append(o); }
+  sel.value = game;
+  sel.addEventListener("change", () => { game = sel.value; set("ep-board", game); history.replaceState(null, "", "#" + game); load(); });
+
+  function fill(el, rows, unit) {
+    el.replaceChildren();
+    if (!rows.length) { const li = document.createElement("li"); li.className = "muted"; li.textContent = "No winners yet. Be the first!"; el.append(li); return; }
+    for (const r of rows) {
+      const li = document.createElement("li");
+      const n = document.createElement("span"); n.className = "name"; n.textContent = r.name;
+      const v = document.createElement("span"); v.className = "num"; v.textContent = unit(r);
+      li.append(n, document.createTextNode(" "), v);
+      el.append(li);
     }
   }
-  function table(el, rows, label) {
-    el.replaceChildren();
-    if (!rows.length) { const p = document.createElement("p"); p.className = "muted"; p.style.margin = "0"; p.textContent = "No winners yet. Be the first!"; el.append(p); return; }
-    const t = document.createElement("table");
-    const cap = document.createElement("caption"); cap.className = "muted"; cap.style.cssText = "text-align:left; position:absolute; left:-9999px"; cap.textContent = label; t.append(cap);
-    t.insertAdjacentHTML("beforeend", "<thead><tr><th scope='col'>Rank</th><th scope='col'>Name</th><th scope='col' class='n'>Best streak</th><th scope='col' class='n'>Current</th><th scope='col' class='n'>Wins</th></tr></thead>");
-    const tb = document.createElement("tbody");
-    rows.forEach((r, i) => {
-      const tr = document.createElement("tr"); tr.className = "r" + (i + 1);
-      for (const [v, n] of [[i + 1, 0], [r.name, 0], [r.best, 1], [r.cur, 1], [r.wins, 1]]) { const td = document.createElement("td"); if (n) td.className = "n"; td.textContent = v; tr.append(td); }
-      tb.append(tr);
-    });
-    t.append(tb); el.append(t);
-  }
   async function load() {
-    const name = GAMES.find((g) => g[0] === game)[1];
-    $("board-h").textContent = name;
-    $("board-h").setAttribute("tabindex", "-1");
+    $("msg").textContent = "";
     try {
-      const r = await fetch("/api/board?game=" + game); const d = await r.json();
-      table($("pvp"), d.pvp || [], name + ", against players");
-      table($("cpu"), d.cpu || [], name + ", against the computer");
-    } catch (e) { $("pvp").textContent = "Couldn't load the leaderboard. Check your connection and reload."; $("cpu").textContent = ""; }
+      const d = await (await fetch("/api/board?game=" + game)).json();
+      fill($("most"), d.most || [], (r) => r.wins + (r.wins === 1 ? " win" : " wins"));
+      fill($("streak"), d.streak || [], (r) => r.best + (r.best === 1 ? " game" : " games") + " in a row");
+    } catch (e) { $("msg").textContent = "Couldn't load the leaderboard. Check your connection and reload."; }
   }
-  async function me() {
-    const c = playerCode();
-    $("my-code").textContent = pretty(c);
-    $("my-code").setAttribute("aria-label", c.split("").join(" "));
-    const box = $("my-stats"); box.replaceChildren();
-    try {
-      const r = await fetch("/api/board/me?player=" + c); const d = await r.json();
-      const ul = document.createElement("ul"); ul.style.cssText = "margin:0; padding-left:22px; display:grid; gap:4px";
-      for (const [id, name] of GAMES) {
-        const s = d.stats && d.stats[id]; if (!s) continue;
-        const part = (m, label) => s[m] ? label + ": best streak " + s[m].best + ", current " + s[m].cur + ", " + s[m].wins + " wins" : "";
-        const li = document.createElement("li"); li.textContent = name + ". " + [part("pvp", "Against players"), part("cpu", "Against the computer")].filter(Boolean).join(". ") + ".";
-        ul.append(li);
-      }
-      if (ul.children.length) box.append(ul); else { box.className = "muted"; box.textContent = "No games recorded on this code yet. Finish a game to get on the board."; }
-    } catch (e) {}
-  }
+
+  const c = playerCode();
+  $("my-code").textContent = pretty(c);
+  $("my-code").setAttribute("aria-label", c.split("").join(" "));
   $("use-btn").addEventListener("click", () => {
-    const c = $("code-input").value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (!/^[A-Z2-9]{12}$/.test(c)) { $("me-msg").textContent = "A player code is 12 letters and numbers, like the one shown above."; return; }
-    set("ep-player", c); $("code-input").value = ""; $("me-msg").textContent = "Done. This device now uses code " + pretty(c) + "."; me();
+    const v = $("code-input").value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!/^[A-Z2-9]{12}$/.test(v)) { $("me-msg").textContent = "A player code is 12 letters and numbers, like the one shown above."; return; }
+    set("ep-player", v); $("code-input").value = ""; $("my-code").textContent = pretty(v); $("my-code").setAttribute("aria-label", v.split("").join(" "));
+    $("me-msg").textContent = "Done. This device now uses code " + pretty(v) + ".";
   });
   $("copy-btn").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(playerCode()); $("me-msg").textContent = "Your code is copied."; }
     catch (e) { $("me-msg").textContent = "Couldn't copy. Your code is " + playerCode().split("").join(" ") + "."; }
   });
-  picker(); load(); me();
+  load();
 })();
 </script>
 </body>
