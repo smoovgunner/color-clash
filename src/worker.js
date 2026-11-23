@@ -6,6 +6,8 @@
 //   Dice Dash:    GET /api/dd/new -> { code }, GET /api/dd/room/<CODE> -> WebSocket
 //   Survey Showdown: GET /api/ss/new -> { code }, GET /api/ss/room/<CODE> -> WebSocket
 //   High Rollers: GET /api/hr/new -> { code }, GET /api/hr/room/<CODE> -> WebSocket
+//   Play someone new: POST /api/lobby/match {game, player} -> { code, waiting }, GET /api/lobby -> players waiting per game
+//   (a room joined with ?pub=1 is a public table: it tells the lobby while it waits, and when it fills)
 import { DurableObject } from "cloudflare:workers";
 import * as colorClash from "../public/color-clash/game.js";
 import * as letterFlip from "../public/letter-flip/rules.js";
@@ -19,6 +21,8 @@ const WORDS = [
   "TIGER", "MANGO", "COMET", "LUCKY", "OCEAN", "PEACH", "ROCKET", "SUNNY", "MAPLE", "JAZZY",
   "PANDA", "RIVER", "STORM", "HONEY", "CANDY", "PIXEL", "ZEBRA", "LEMON", "CORAL", "BLAZE",
 ];
+// Names for the computer player. The page always says it's the computer.
+const BOTS = ["Lucky Lou", "Dicey Dana", "Big Mike", "Ace", "Queenie", "Slick Rick", "Penny", "Domino", "Mo Money", "Skip", "Sunny", "Wild Card Willa", "Tex", "Professor Pip", "Rosie", "Captain Kev"];
 const IDLE_MS = 7 * 24 * 60 * 60 * 1000; // a room with no moves for a week is cleared
 
 function makeCode() {
@@ -55,7 +59,7 @@ async function sha256(text) {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (url.pathname.startsWith("/api/board") || url.pathname.startsWith("/api/admin")) {
+    if (url.pathname.startsWith("/api/board") || url.pathname.startsWith("/api/admin") || url.pathname.startsWith("/api/lobby")) {
       return env.BOARD.get(env.BOARD.idFromName("main")).fetch(req);
     }
     if (/^\/api\/((lf|rm|dr|dd|ss|hr)\/)?new$/.test(url.pathname)) return json({ code: makeCode() });
@@ -84,9 +88,10 @@ class Room extends DurableObject {
     const u = new URL(req.url);
     const code = u.pathname.split("/").pop();
     // A computer game: the first visitor of an empty room asks for the computer to sit in seat 2.
+    if (u.searchParams.get("pub") === "1" && !this.st) { this.st = { ...this.rules.newTable(), pub: true, code }; await this.save(); }
     if (u.searchParams.get("cpu") === "1" && !this.st) {
       this.st = { ...this.rules.newTable(), cpu: true };
-      this.st.seats[1] = { token: "cpu", name: "The computer", player: null };
+      this.st.seats[1] = { token: "cpu", name: BOTS[Math.floor(Math.random() * BOTS.length)], player: null, bot: true };
       await this.save();
     }
     const pair = new WebSocketPair();
@@ -129,7 +134,12 @@ class Room extends DurableObject {
     try { m = JSON.parse(raw); } catch (e) { return; }
     const att = ws.deserializeAttachment() || { seat: -1 };
 
-    if (m.type === "ping") { ws.send('{"type":"pong"}'); return; }
+    if (m.type === "ping") {
+      ws.send('{"type":"pong"}');
+      // a public table still waiting for a second player: tell the lobby we're still here
+      if (this.st && this.st.pub && att.seat >= 0 && this.waitingForPlayer()) this.lobby("touch");
+      return;
+    }
 
     if (m.type === "hello") {
       const token = String(m.token || "").slice(0, 64);
@@ -145,6 +155,7 @@ class Room extends DurableObject {
       ws.serializeAttachment({ seat, token, code: att.code });
       await this.save();
       this.broadcast();
+      if (this.st.pub) this.lobby(this.waitingForPlayer() ? "touch" : "drop");
       return;
     }
 
@@ -168,7 +179,29 @@ class Room extends DurableObject {
       ws.serializeAttachment({ seat: -1, token: null, code: att.code });
       try { ws.close(1000, "left"); } catch (e) {}
       this.broadcast();
+      if (this.st && this.st.pub) this.lobby(this.waitingForPlayer() ? "touch" : "drop");
     }
+  }
+
+  /** A public table with exactly one player, who is still connected. */
+  waitingForPlayer() {
+    const st = this.st;
+    if (!st || !st.pub || st.status === "playing") return false;
+    const seated = st.seats.filter(Boolean).length;
+    const c = this.connected();
+    return seated === 1 && st.seats.some((p, i) => p && c[i]);
+  }
+
+  /** Tell the lobby this public table is waiting ("touch") or no longer open ("drop"). */
+  lobby(what) {
+    if (!this.game || !this.st || !this.st.code) return;
+    const now = Date.now();
+    if (what === "touch" && this.lastTouch && now - this.lastTouch < 20000) return;
+    if (what === "touch") this.lastTouch = now; else this.lastTouch = 0;
+    const board = this.env.BOARD.get(this.env.BOARD.idFromName("main"));
+    const name = (this.st.seats.find(Boolean) || {}).name || "Player";
+    const player = (this.st.seats.find(Boolean) || {}).player || null;
+    this.ctx.waitUntil(board.fetch("https://board/lobby/" + what, { method: "POST", body: JSON.stringify({ game: this.game, code: this.st.code, name, player }) }).catch(() => {}));
   }
 
   /** Save, tell everyone, record finished games, and let the computer move if it's its turn. */
@@ -225,6 +258,7 @@ class Room extends DurableObject {
   async webSocketClose(ws) {
     try { ws.close(); } catch (e) {}
     if (this.st) this.broadcast();
+    if (this.st && this.st.pub && !this.waitingForPlayer() && this.st.seats.filter(Boolean).length < 2) this.lobby("drop");
   }
 
   async webSocketError(ws) {
@@ -271,6 +305,45 @@ export class Board extends DurableObject {
     const url = new URL(req.url);
     const S = this.ctx.storage;
     const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+
+    // ---- the lobby: public tables waiting for a second player ----
+    const FRESH = 70000;
+    const loadLobby = async () => {
+      if (!this.waiting) this.waiting = (await S.get("lobby")) || [];
+      const now = Date.now();
+      this.waiting = this.waiting.filter((w) => now - w.ts < FRESH);
+      return this.waiting;
+    };
+    const saveLobby = () => S.put("lobby", this.waiting);
+    if (url.pathname === "/lobby/touch" || url.pathname === "/lobby/drop") {
+      const b = await req.json().catch(() => ({}));
+      const list = await loadLobby();
+      this.waiting = list.filter((w) => !(w.game === b.game && w.code === b.code));
+      if (url.pathname === "/lobby/touch" && GAMES[b.game]) this.waiting.push({ game: b.game, code: b.code, name: cleanName(b.name), player: b.player || null, ts: Date.now() });
+      await saveLobby();
+      return json({ ok: true });
+    }
+    if (url.pathname === "/api/lobby") {
+      const list = await loadLobby();
+      const counts = {};
+      for (const g of Object.keys(GAMES)) counts[g] = list.filter((w) => w.game === g).length;
+      return json({ waiting: counts });
+    }
+    if (url.pathname === "/api/lobby/match" && req.method === "POST") {
+      const b = await req.json().catch(() => ({}));
+      if (!GAMES[b.game]) return json({ error: "Unknown game." }, 400);
+      const list = await loadLobby();
+      const me = PLAYER_RE.test(String(b.player || "")) ? b.player : null;
+      const open = list.filter((w) => w.game === b.game && (!me || w.player !== me)).sort((x, y) => x.ts - y.ts)[0];
+      if (open) {
+        this.waiting = list.filter((w) => w !== open);
+        await saveLobby();
+        return json({ code: open.code, waiting: false, host: open.name });
+      }
+      // nobody waiting: open a new public table (the room joins the lobby when the player sits down)
+      const mine = list.find((w) => w.game === b.game && me && w.player === me);
+      return json({ code: mine ? mine.code : "P" + makeCode(), waiting: true });
+    }
 
     if (url.pathname === "/record" && req.method === "POST") {
       const { game, mode, results } = await req.json();

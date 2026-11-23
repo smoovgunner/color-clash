@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Color Clash</title>
-<meta name="description" content="A color-and-number card game for two, made so blind and sighted players can play together.">
+<meta name="description" content="A color-and-number card game for two. Free, no account needed.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bungee&display=swap">
 <style>
@@ -207,6 +207,7 @@ footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
     </div>
     <div class="row">
       <button type="button" class="btn" id="join-btn">Join game</button>
+      <button type="button" class="btn primary" id="match-btn">Play someone new</button>
       <button type="button" class="btn" id="practice-btn">Practice against the computer</button>
     </div>
     <p class="muted" id="home-msg" style="margin:0"></p>
@@ -275,7 +276,7 @@ footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
     </details>
   </section>
 
-  <footer>Color Clash, made by smoovgunner with Claude, so blind and sighted players can share a game.</footer>
+  <footer>Color Clash is an <a href="/" style="color:inherit">EvenPlay</a> game. <a href="/about/" style="color:inherit">About EvenPlay</a>.</footer>
 </div>
 
 <div class="overlay" id="picker" hidden>
@@ -292,6 +293,7 @@ footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
 </div>
 
 <script type="module">
+import { useSamples } from "/sounds/samples.js";
 import { COLORS, VALS, cardName, newTable, applyAction, viewFor, cpuAction } from "./game.js";
 
 const GLYPH = { S: "⊘", R: "⇄", D: "+2", W: "", F: "+4" };
@@ -314,7 +316,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
 };
 
-let mode = "home";          // home | online | practice
+let mode = "home", publicGame = false;          // home | online | practice
 let view = null;            // what this player can see
 let code = null, ws = null, wsTries = 0, wsTimer = null, pingTimer = null, leaving = false;
 let pst = null, cpuTimer = null;   // practice game (kept on this device)
@@ -373,6 +375,10 @@ let lastEvn = null, pendingWild = null, lastFocus = null;
     let t = ac.currentTime + 0.03;
     for (const n of names) { if (SFX[n]) { SFX[n](ac, t); t += n === "win" || n === "lose" ? 1.2 : 0.3; } }
   }
+// Recorded card, dice and chip sounds (Kenney, CC0). The made-up sounds above stay as a fallback.
+SFX.shuffle = (ac, t) => SFX.draw(ac, t);
+useSamples(SFX, { play: { files: ["card-place-2.mp3", "card-place-3.mp3", "card-place-4.mp3"] }, draw: { files: ["card-slide-6.mp3"] }, shuffle: { files: ["card-shuffle.mp3"], vol: 0.8 } }, audio);
+
   function renderSoundBtn() {
     const b = $("sound-btn");
     b.textContent = soundOn ? "Sound on" : "Sound off";
@@ -391,7 +397,7 @@ const myName = () => ($("name-input").value.trim() || store.get("cc-name") || ""
 function nameOf(seat) {
   if (!view) return "";
   if (seat === view.you) return "You";
-  if (mode === "practice" && seat === 1) return "The computer";
+  if (mode === "practice" && seat === 1) return view.names[1] || "The computer";
   return view.names[seat] || "Your partner";
 }
 function eventText(ev) {
@@ -434,7 +440,8 @@ function eventSounds(ev) {
     if (v === "S" || v === "R") out.push("skip");
     if (v === "D" || v === "F") out.push("plus");
     if (ev.left === 1) out.push("last");
-  } else if (ev.t === "draw" || ev.t === "deal") out.push("draw");
+  } else if (ev.t === "deal") out.push("shuffle");
+  else if (ev.t === "draw") out.push("draw");
   else if (ev.t === "win") out.push(ev.s === view.you ? "win" : "lose");
   return out;
 }
@@ -497,7 +504,7 @@ function tokenFor(c) {
 function connect() {
   clearTimeout(wsTimer);
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  ws = new WebSocket(proto + "//" + location.host + "/api/room/" + code + (cpuGame ? "?cpu=1" : ""));
+  ws = new WebSocket(proto + "//" + location.host + "/api/room/" + code + (cpuGame ? "?cpu=1" : publicGame ? "?pub=1" : ""));
   ws.onopen = () => {
     wsTries = 0;
     ws.send(JSON.stringify({ type: "hello", token: tokenFor(code), name: myName() || "Player", player: playerCode() }));
@@ -507,7 +514,19 @@ function connect() {
   ws.onmessage = (e) => {
     let m; try { m = JSON.parse(e.data); } catch (x) { return; }
     if (m.type === "state") {
+      const before = view && view.present ? view.present.filter(Boolean).length : 0;
+      const firstView = !view;
+      if (firstView && mode === "practice" && m.view.names && m.view.names[1]) {
+        // name the computer player in the first announcements of the game
+        const intro = "You're playing against " + m.view.names[1] + ", the computer. ", until = Date.now() + 3000, plain = say;
+        say = (text) => { if (Date.now() < until) return plain(intro + text); say = plain; return plain(text); };
+      }
       view = m.view; render();
+      if (publicGame && before === 1 && view.present.filter(Boolean).length === 2 && view.you >= 0) {
+        const them = view.names[1 - view.you] || "A player";
+        say(them + " joined your table! " + (view.you === 0 ? "Start the game when you're ready." : "They'll start the game."));
+        const ac = audio(); if (ac) { const t = ac.currentTime + 0.03; [784, 988, 1175, 1568].forEach((f, i) => tone(ac, t + i * 0.12, f, 0.3, "sine", 0.18)); }
+      }
       if (autoDeal && view.status === "waiting" && view.present[0] && view.present[1] && view.you === 0) { const a = autoDeal; autoDeal = null; act(a); }
     }
     else if (m.type === "error") say(m.message);
@@ -542,6 +561,7 @@ async function createRoom() {
   }
 }
 function leaveGame() {
+  publicGame = false;
   leaving = true;
   clearTimeout(wsTimer); clearInterval(pingTimer); clearTimeout(cpuTimer);
   if (ws) { try { ws.send('{"type":"leave"}'); ws.close(); } catch (e) {} }
@@ -648,7 +668,7 @@ function renderLobby() {
     const label = document.createElement("strong");
     const here = view.present[i];
     const on = mode === "practice" || view.connected[i];
-    label.textContent = !here ? "Waiting for a player" : (i === view.you ? "You" : (view.names[i] || "Your partner"));
+    label.textContent = !here ? "Waiting for a player" : (i === view.you ? "You" : (view.names[i] || "Your partner") + (mode === "practice" && i === 1 ? " (computer)" : ""));
     const st = document.createElement("span"); st.className = "muted";
     if (here) {
       const dot = document.createElement("span"); dot.className = "dot" + (on ? " on" : ""); dot.setAttribute("aria-hidden", "true");
@@ -752,7 +772,7 @@ function render() {
   const banner = $("banner");
   banner.classList.remove("mine");
   if (view.you < 0) banner.textContent = "This game already has two players. You can watch, but not play.";
-  else if (view.status === "waiting") banner.textContent = view.present[0] && view.present[1] ? "Both players are here. Deal the cards to start." : "Waiting for your partner to join with code " + code + ".";
+  else if (view.status === "waiting") banner.textContent = view.present[0] && view.present[1] ? "Both players are here. Deal the cards to start." : publicGame ? "Looking for another player. Stay on this page: you'll hear a chime when someone joins. Or leave and practice against the computer." : "Waiting for your partner to join with code " + code + ".";
   else if (view.status === "over") banner.textContent = (view.winner === view.you ? "You win the round!" : nameOf(view.winner) + " wins the round!") + " Deal the next round when you're ready.";
   else {
     banner.textContent = turnText() + (view.drawn && view.turn === view.you ? " Play the card you drew, or pass." : "");
@@ -776,6 +796,23 @@ function render() {
 }
 
 // ---------- home ----------
+
+// Play someone new: join a player who's waiting for this game, or open a public table and wait for one.
+async function quickMatch() {
+  store.set("cc-name", myName());
+  $("home-msg").textContent = "Looking for a player…";
+  try {
+    const r = await fetch("/api/lobby/match", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: "cc", player: playerCode() }) });
+    const d = await r.json();
+    if (!d.code) throw new Error("no code");
+    publicGame = true;
+    joinRoom(d.code);
+    history.replaceState(null, "", location.pathname);
+    if (!d.waiting) say("Found a player: " + (d.host || "someone") + ". Joining their table.");
+  } catch (e) { $("home-msg").textContent = "Couldn't reach the game server. Check your internet connection and try again."; }
+}
+$("match-btn").addEventListener("click", quickMatch);
+
 $("name-input").value = store.get("cc-name") || "";
 $("create-btn").addEventListener("click", createRoom);
 $("join-btn").addEventListener("click", () => joinRoom($("code-input").value));

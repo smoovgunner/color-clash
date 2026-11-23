@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>EvenPlay</title>
-<meta name="description" content="Games that blind and sighted players play together, on the same screen. No accounts, no downloads: share a code and play.">
+<meta name="description" content="Free two-player card and dice games. No accounts, no downloads: play a friend with a code, find someone new, or practice against the computer.">
 <script>
   // Old Color Clash invite links pointed here with a game code (#TIGER42): send them on to the game.
   if (/^#[A-Za-z0-9]{3,16}$/.test(location.hash)) location.replace("/color-clash/" + location.hash);
@@ -44,6 +44,7 @@ h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.12em; color: 
 .art span:nth-child(1) { transform: rotate(-10deg); } .art span:nth-child(2) { transform: rotate(-3deg) translateY(-4px); } .art span:nth-child(3) { transform: rotate(5deg); }
 .how { background: rgba(0,0,0,0.22); border-radius: 18px; padding: 18px; }
 .how ul { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+.waiting { margin: 0; font-weight: 700; color: var(--gold); }
 footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
 </style>
 </head>
@@ -51,8 +52,8 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
 <main class="wrap">
   <header>
     <h1><span class="even">Even</span>Play</h1>
-    <p class="tag">Games blind and sighted players play together, on the same screen.</p>
-    <p style="margin:14px 0 0"><a class="play" href="/leaderboards/" style="background:transparent;color:var(--gold);border:2px solid var(--gold)">See the leaderboards</a></p>
+    <p class="tag">Free card and dice games for two. Play a friend, find someone new, or take on the computer.</p>
+    <p style="margin:14px 0 0"><a class="play" href="/leaderboards/" style="background:transparent;color:var(--gold);border:2px solid var(--gold)">See the leaderboards</a> <a class="play" href="/about/" style="background:transparent;color:var(--gold);border:2px solid var(--gold)">About EvenPlay</a></p>
   </header>
 
   <section aria-labelledby="games-h">
@@ -63,6 +64,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
         <h3>Color Clash</h3>
         <p>Match the top card by color or number. Skips, reverses, draw twos and wilds.</p>
         <p class="meta">2 players. Quick rounds.</p>
+        <p class="waiting" data-game="cc" hidden></p>
         <a class="play" href="/color-clash/">Play Color Clash</a>
       </li>
       <li class="game">
@@ -70,6 +72,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
         <h3>Letter Flip</h3>
         <p>Change one letter at a time to make a new four-letter word. Take turns, or race for points.</p>
         <p class="meta">2 players. For word lovers.</p>
+        <p class="waiting" data-game="lf" hidden></p>
         <a class="play" href="/letter-flip/">Play Letter Flip</a>
       </li>
       <li class="game">
@@ -77,6 +80,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
         <h3>Rummy</h3>
         <p>The classic: build sets and runs, add to the table, and go out first. Play to 100.</p>
         <p class="meta">2 players. Classic deck.</p>
+        <p class="waiting" data-game="rm" hidden></p>
         <a class="play" href="/rummy/">Play Rummy</a>
       </li>
       <li class="game">
@@ -84,6 +88,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
         <h3>Deal Rush</h3>
         <p>Collect property sets, charge rent, swipe and swap. First to three full sets wins.</p>
         <p class="meta">2 players. A bit of strategy.</p>
+        <p class="waiting" data-game="dr" hidden></p>
         <a class="play" href="/deal-rush/">Play Deal Rush</a>
       </li>
       <li class="game">
@@ -91,6 +96,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
         <h3>Dice Dash</h3>
         <p>Roll five dice up to three times, hold the ones you like, and fill your scorecard. Chase Five of a Kind.</p>
         <p class="meta">2 players. Dice and a bit of luck.</p>
+        <p class="waiting" data-game="dd" hidden></p>
         <a class="play" href="/dice-dash/">Play Dice Dash</a>
       </li>
       <li class="game">
@@ -98,6 +104,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
         <h3>Survey Showdown</h3>
         <p>Guess the most popular answers to survey questions. Face off, take control, and steal on three strikes.</p>
         <p class="meta">2 players. Quick thinking.</p>
+        <p class="waiting" data-game="ss" hidden></p>
         <a class="play" href="/survey-showdown/">Play Survey Showdown</a>
       </li>
       <li class="game">
@@ -105,6 +112,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
         <h3>High Rollers</h3>
         <p>Roll your dice and claim six casinos full of cash. Tie your rival at a casino and neither of you gets paid.</p>
         <p class="meta">2 players. Fast and sneaky.</p>
+        <p class="waiting" data-game="hr" hidden></p>
         <a class="play" href="/high-rollers/">Play High Rollers</a>
       </li>
     </ul>
@@ -114,8 +122,8 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
     <h2 id="how-h">How it works</h2>
     <ul>
       <li><strong>No accounts, no downloads.</strong> Open a game, create a table, and share the code or invite link. Your partner types the code and you're playing.</li>
-      <li><strong>Works with screen readers.</strong> Every card is a labeled button, every move is announced, and each part of the table has its own heading. Tested with NVDA and VoiceOver.</li>
-      <li><strong>Real visuals.</strong> Sighted players see real cards and tables, not a black screen.</li>
+      <li><strong>Play someone new.</strong> Every game has a Play someone new button that matches you with another player who's waiting.</li>
+      <li><strong>Everyone plays.</strong> Real cards and dice on screen, and full screen reader support: every move is announced. Tested with NVDA and VoiceOver.</li>
       <li><strong>Sound effects</strong> for every move, with a switch to turn them off.</li>
       <li><strong>Phones and computers.</strong> iPhone, Android, Windows or Mac, in any modern browser.</li>
       <li><strong>Practice</strong> against the computer in every game.</li>
@@ -123,7 +131,21 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
     </ul>
   </section>
 
-  <footer>EvenPlay, made by smoovgunner with Claude, so everyone gets a seat at the table.</footer>
+  <footer>EvenPlay, made by smoovgunner with Claude. <a href="/about/" style="color:inherit">About EvenPlay</a> · <a href="/leaderboards/" style="color:inherit">Leaderboards</a></footer>
 </main>
+<script>
+// Show how many players are waiting at a public table for each game.
+async function waiting() {
+  try {
+    const d = await (await fetch("/api/lobby")).json();
+    for (const el of document.querySelectorAll(".waiting")) {
+      const n = (d.waiting || {})[el.dataset.game] || 0;
+      el.hidden = !n;
+      el.textContent = n ? (n === 1 ? "1 player waiting for a game now" : n + " players waiting for a game now") : "";
+    }
+  } catch (e) {}
+}
+waiting(); setInterval(waiting, 20000);
+</script>
 </body>
 </html>

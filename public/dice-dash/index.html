@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Dice Dash</title>
-<meta name="description" content="A five-dice scorecard game for two, made so blind and sighted players can play together.">
+<meta name="description" content="A five-dice scorecard game for two. Free, no account needed.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bungee&display=swap">
 <style>
@@ -233,6 +233,7 @@ table.sc { width: 100%; border-collapse: collapse; font-variant-numeric: tabular
     </div>
     <div class="row">
       <button type="button" class="btn" id="join-btn">Join game</button>
+      <button type="button" class="btn primary" id="match-btn">Play someone new</button>
       <button type="button" class="btn" id="practice-btn">Practice against the computer</button>
     </div>
     <p class="muted" id="home-msg" style="margin:0"></p>
@@ -291,10 +292,11 @@ table.sc { width: 100%; border-collapse: collapse; font-variant-numeric: tabular
     </details>
   </section>
 
-  <footer>Dice Dash, an EvenPlay game made by smoovgunner with Claude, so blind and sighted players can share a game.</footer>
+  <footer>Dice Dash is an <a href="/" style="color:inherit">EvenPlay</a> game. <a href="/about/" style="color:inherit">About EvenPlay</a>.</footer>
 </div>
 
 <script type="module">
+import { useSamples } from "/sounds/samples.js";
 import { BOXES, ROLLS, UPPER_BONUS_AT, UPPER_BONUS, scoreFor, jokerOn, totals, applyAction, viewFor, cpuAction, newTable } from "./rules.js";
 
 const $ = (id) => document.getElementById(id);
@@ -314,7 +316,7 @@ const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
 };
-let mode = "home";
+let mode = "home", publicGame = false;
 let view = null, code = null, ws = null, wsTries = 0, wsTimer = null, pingTimer = null, leaving = false;
 let pst = null, cpuTimer = null;
 let lastEvn = null, myHeld = [false, false, false, false, false], heldKey = "";
@@ -372,6 +374,7 @@ let lastEvn = null, myHeld = [false, false, false, false, false], heldKey = "";
     let t = ac.currentTime + 0.03;
     for (const n of names) { if (SFX[n]) { SFX[n](ac, t); t += n === "win" || n === "lose" ? 1.2 : 0.3; } }
   }
+
   function renderSoundBtn() {
     const b = $("sound-btn");
     b.textContent = soundOn ? "Sound on" : "Sound off";
@@ -389,13 +392,15 @@ let lastEvn = null, myHeld = [false, false, false, false, false], heldKey = "";
 SFX.roll = (ac, t) => { for (let i = 0; i < 5; i++) noise(ac, t + i * 0.06, 0.05, 1800 + i * 300, 900, 0.45); };
 SFX.nope = (ac, t) => { tone(ac, t, 200, 0.18, "square", 0.07, 150); tone(ac, t + 0.2, 150, 0.25, "square", 0.07, 110); };
 SFX.coin = (ac, t) => { tone(ac, t, 988, 0.08, "square", 0.06); tone(ac, t + 0.08, 1319, 0.25, "square", 0.06); };
+// Recorded card, dice and chip sounds (Kenney, CC0). The made-up sounds above stay as a fallback.
+useSamples(SFX, { roll: { files: ["dice-throw-1.mp3", "die-throw-3.mp3"] }, coin: { files: ["chips-handle-6.mp3"], layer: true } }, audio);
 
 // ---------- words ----------
 const myName = () => ($("name-input").value.trim() || store.get("cc-name") || "").slice(0, 24);
 function nameOf(seat) {
   if (!view || seat == null || seat < 0) return "";
   if (seat === view.you) return "You";
-  if (mode === "practice" && seat === 1) return "The computer";
+  if (mode === "practice" && seat === 1) return view.names[1] || "The computer";
   return view.names[seat] || "Your partner";
 }
 const verb = (seat, you, them) => (seat === view.you ? you : them);
@@ -459,7 +464,7 @@ function tokenFor(c) {
 function connect() {
   clearTimeout(wsTimer);
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  ws = new WebSocket(proto + "//" + location.host + "/api/dd/room/" + code + (cpuGame ? "?cpu=1" : ""));
+  ws = new WebSocket(proto + "//" + location.host + "/api/dd/room/" + code + (cpuGame ? "?cpu=1" : publicGame ? "?pub=1" : ""));
   ws.onopen = () => {
     wsTries = 0;
     ws.send(JSON.stringify({ type: "hello", token: tokenFor(code), name: myName() || "Player", player: playerCode() }));
@@ -469,7 +474,19 @@ function connect() {
   ws.onmessage = (e) => {
     let m; try { m = JSON.parse(e.data); } catch (x) { return; }
     if (m.type === "state") {
+      const before = view && view.present ? view.present.filter(Boolean).length : 0;
+      const firstView = !view;
+      if (firstView && mode === "practice" && m.view.names && m.view.names[1]) {
+        // name the computer player in the first announcements of the game
+        const intro = "You're playing against " + m.view.names[1] + ", the computer. ", until = Date.now() + 3000, plain = say;
+        say = (text) => { if (Date.now() < until) return plain(intro + text); say = plain; return plain(text); };
+      }
       view = m.view; render();
+      if (publicGame && before === 1 && view.present.filter(Boolean).length === 2 && view.you >= 0) {
+        const them = view.names[1 - view.you] || "A player";
+        say(them + " joined your table! " + (view.you === 0 ? "Start the game when you're ready." : "They'll start the game."));
+        const ac = audio(); if (ac) { const t = ac.currentTime + 0.03; [784, 988, 1175, 1568].forEach((f, i) => tone(ac, t + i * 0.12, f, 0.3, "sine", 0.18)); }
+      }
       if (autoDeal && view.status === "waiting" && view.present[0] && view.present[1] && view.you === 0) { const a = autoDeal; autoDeal = null; act(a); }
     }
     else if (m.type === "error") problem(m.message);
@@ -496,6 +513,7 @@ async function createRoom() {
   catch (e) { $("home-msg").textContent = "Couldn't reach the game server. Check your internet connection and try again."; }
 }
 function leaveGame() {
+  publicGame = false;
   leaving = true; clearTimeout(wsTimer); clearInterval(pingTimer); clearTimeout(cpuTimer);
   if (ws) { try { ws.send('{"type":"leave"}'); ws.close(); } catch (e) {} }
   cpuGame = false; autoDeal = null;
@@ -564,7 +582,7 @@ function renderLobby() {
     const box = document.createElement("div"); box.className = "seat";
     const label = document.createElement("strong");
     const here = view.present[i], on = mode === "practice" || view.connected[i];
-    label.textContent = !here ? "Waiting for a player" : (i === view.you ? "You" : nameOf(i));
+    label.textContent = !here ? "Waiting for a player" : (i === view.you ? "You" : nameOf(i) + (mode === "practice" && i === 1 ? " (computer)" : ""));
     const st = document.createElement("span"); st.className = "muted";
     if (here) {
       const dot = document.createElement("span"); dot.className = "dot" + (on ? " on" : ""); dot.setAttribute("aria-hidden", "true");
@@ -659,7 +677,7 @@ function renderLog() {
 }
 function bannerText() {
   if (view.you < 0) return "This game already has two players. You can watch, but not play.";
-  if (view.status === "waiting") return view.present[0] && view.present[1] ? "Both players are here. Start the game when you're ready." : "Waiting for your partner to join with code " + code + ".";
+  if (view.status === "waiting") return view.present[0] && view.present[1] ? "Both players are here. Start the game when you're ready." : publicGame ? "Looking for another player. Stay on this page: you'll hear a chime when someone joins. Or leave and practice against the computer." : "Waiting for your partner to join with code " + code + ".";
   if (view.status === "over") { const e = view.events.find((x) => x.t === "end"); return e ? eventText(e) : "Game over."; }
   if (!myTurn()) return nameOf(view.turn) + "'s turn. Round " + view.round + " of 13.";
   return "Your turn. Round " + view.round + " of 13. " + (!view.rolls ? "Roll the dice." : view.rolls < ROLLS ? "Hold dice and roll again, or score a box." : "Score a box.");
@@ -690,6 +708,23 @@ function render() {
 }
 
 // ---------- home ----------
+
+// Play someone new: join a player who's waiting for this game, or open a public table and wait for one.
+async function quickMatch() {
+  store.set("cc-name", myName());
+  $("home-msg").textContent = "Looking for a player…";
+  try {
+    const r = await fetch("/api/lobby/match", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: "dd", player: playerCode() }) });
+    const d = await r.json();
+    if (!d.code) throw new Error("no code");
+    publicGame = true;
+    joinRoom(d.code);
+    history.replaceState(null, "", location.pathname);
+    if (!d.waiting) say("Found a player: " + (d.host || "someone") + ". Joining their table.");
+  } catch (e) { $("home-msg").textContent = "Couldn't reach the game server. Check your internet connection and try again."; }
+}
+$("match-btn").addEventListener("click", quickMatch);
+
 $("name-input").value = store.get("cc-name") || "";
 $("create-btn").addEventListener("click", createRoom);
 $("join-btn").addEventListener("click", () => joinRoom($("code-input").value));
