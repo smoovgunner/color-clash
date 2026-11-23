@@ -491,6 +491,21 @@ function actWords(a) {
   }
   return "";
 }
+// "Sunny gave you the Light Blue property (worth 1M) to cover the 5M rent." Money and property are said separately.
+const WHY = { rent: "rent", debt: "debt", party: "party charge" };
+function paidText(ev, who) {
+  const isProp = (id) => CARDS[id].kind === "prop" || CARDS[id].kind === "wild";
+  const money = ev.cards.filter((id) => !isProp(id)), props = ev.cards.filter(isProp);
+  const toWhom = ev.to === view.you ? "you" : nameOf(ev.to);
+  const cash = money.reduce((n, id) => n + CARDS[id].value, 0);
+  const parts = [];
+  if (money.length) parts.push("paid " + toWhom + " " + M(cash) + " from " + verb(ev.s, "your", "their") + " bank" + (money.length > 1 ? " (" + money.map(payName).join(", ") + ")" : ""));
+  if (props.length) parts.push("gave " + toWhom + " " + props.map((id) => "the " + cname(id) + " (worth " + M(CARDS[id].value) + ")").join(" and "));
+  let s = who + " " + parts.join(" and ") + " to cover the " + M(ev.amount) + " " + (WHY[ev.why] || "charge") + ".";
+  if (props.length) s += " " + (props.length === 1 ? "That property goes" : "Those properties go") + " on " + (ev.to === view.you ? "your" : nameOf(ev.to) + "'s") + " table, not in the bank.";
+  if (ev.total < ev.amount) s += " That's everything " + verb(ev.s, "you", "they") + " had.";
+  return s;
+}
 function eventText(ev) {
   const who = nameOf(ev.s), mine = ev.s === view.you;
   switch (ev.t) {
@@ -504,7 +519,7 @@ function eventText(ev) {
     case "accept": return ev.blocked ? "Blocked! The move doesn't happen." : "";
     case "paid":
       if (ev.broke) return who + verb(ev.s, " have", " has") + " nothing to pay with, so nothing is paid.";
-      return who + verb(ev.s, " paid ", " paid ") + (ev.to === view.you ? "you " : nameOf(ev.to) + " ") + M(ev.total) + (ev.cards.length ? ": " + ev.cards.map(payName).join(", ") : "") + "." + (ev.total < ev.amount ? " That's everything " + verb(ev.s, "you", "they") + " had." : "");
+      return paidText(ev, who);
     case "swiped": return who + verb(ev.s, " took ", " took ") + "the " + cname(ev.card) + ".";
     case "swapped": return "Swap done.";
     case "stole": return who + verb(ev.s, " took ", " took ") + "the whole " + colorName(ev.color) + " set!";
