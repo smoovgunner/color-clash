@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>EvenPlay Leaderboards</title>
-<meta name="description" content="The top five players in every EvenPlay game: most games won, and most games won in a row.">
+<meta name="description" content="The top five players in every EvenPlay game: most games won against other players, and most won in a row.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bungee&display=swap">
 <style>
@@ -56,6 +56,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
   <div class="panel">
     <label for="game">Choose a game</label>
     <select id="game"></select>
+    <p class="muted" style="margin:10px 0 0">Games against other players. Practice games against the computer don't count here.</p>
   </div>
 
   <div class="boards" id="boards">

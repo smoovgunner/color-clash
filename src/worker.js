@@ -370,8 +370,8 @@ export class Board extends DurableObject {
           .sort((a, b) => b.best - a.best || b.cur - a.cur || b.wins - a.wins || a.t - b.t)
           .slice(0, 25).map(({ name, cur, best, wins, losses }) => ({ name, cur, best, wins, losses }));
       };
-      // the simple board: each player's wins against anyone added up, and their longest winning run
-      const all = await S.list({ prefix: "e:" + game + ":" });
+      // the simple board: games against other players only (wins against the computer are kept, just not shown)
+      const all = await S.list({ prefix: "e:" + game + ":pvp:" });
       const people = new Map();
       for (const [k, e] of all) {
         const player = k.split(":")[3];
