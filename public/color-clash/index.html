@@ -187,7 +187,7 @@ footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
     <div class="row"><div class="score" id="score"></div><button type="button" class="btn small" id="sound-btn" aria-pressed="true">Sound on</button></div>
   </header>
 
-  <nav class="games" aria-label="EvenPlay games" style="display:flex;gap:14px;flex-wrap:wrap;font-size:15px"><a href="/" style="color:var(--gold)">All games</a> <a href="/leaderboards/" style="color:var(--gold)">Leaderboards</a> <span class="muted">More games:</span> <a href="/letter-flip/" style="color:var(--gold)">Letter Flip</a> <a href="/rummy/" style="color:var(--gold)">Rummy</a> <a href="/deal-rush/" style="color:var(--gold)">Deal Rush</a> <a href="/dice-dash/" style="color:var(--gold)">Dice Dash</a> <a href="/survey-showdown/" style="color:var(--gold)">Survey Showdown</a> <a href="/high-rollers/">High Rollers</a></nav>
+  <nav class="games" aria-label="EvenPlay games" style="display:flex;gap:14px;flex-wrap:wrap;font-size:15px"><a href="/" style="color:var(--gold)">Home</a> <a href="/how-it-works/" style="color:var(--gold)">How it works</a> <a href="/leaderboards/" style="color:var(--gold)">Leaderboards</a> <span class="muted">More games:</span> <a href="/letter-flip/" style="color:var(--gold)">Letter Flip</a> <a href="/rummy/" style="color:var(--gold)">Rummy</a> <a href="/deal-rush/" style="color:var(--gold)">Deal Rush</a> <a href="/dice-dash/" style="color:var(--gold)">Dice Dash</a> <a href="/survey-showdown/" style="color:var(--gold)">Survey Showdown</a> <a href="/high-rollers/">High Rollers</a></nav>
 
   <div id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
@@ -894,5 +894,6 @@ if (fromLink) {
   else $("home-msg").textContent = "You've been invited to game " + fromLink + ". Type your name, then choose Join game.";
 }
 </script>
+<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}</script>
 </body>
 </html>

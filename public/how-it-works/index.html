@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How EvenPlay works</title>
+<meta name="description" content="How to play on EvenPlay: game codes, finding someone new, practice games, sounds, and the leaderboards.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bungee&display=swap">
+<style>
+:root {
+  color-scheme: dark;
+  --felt: #0f3b3a; --felt-deep: #0a2a29; --ink: #f3efe6; --ink-soft: #b9c9c4; --gold: #f0b43a;
+  --font-display: "Bungee", "Arial Black", Impact, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(ellipse at 50% 30%, var(--felt) 0%, var(--felt-deep) 75%) fixed, var(--felt-deep); color: var(--ink); font: 18px/1.6 var(--font-body); }
+.wrap { max-width: 720px; margin: 0 auto; padding: 28px max(16px, env(safe-area-inset-left, 0px)) 48px; display: grid; gap: 22px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(34px, 9vw, 54px); line-height: 1.05; margin: 0; }
+h1 span { color: var(--gold); }
+h2 { font-size: 22px; margin: 0 0 8px; color: var(--gold); }
+p { margin: 0 0 12px; }
+a { color: var(--gold); }
+nav { display: flex; gap: 14px; flex-wrap: wrap; font-size: 16px; }
+.panel { background: rgba(0,0,0,0.22); border-radius: 18px; padding: 18px; }
+.play { display: inline-flex; align-items: center; min-height: 50px; padding: 12px 18px; border-radius: 12px; background: var(--gold); color: #1d1503; font-weight: 700; text-decoration: none; }
+.play:focus-visible, a:focus-visible { outline: 4px solid #fff; outline-offset: 3px; }
+.panel ul { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header style="display:grid; gap:10px">
+    <h1>How <span>Even</span>Play works</h1>
+    <nav aria-label="EvenPlay"><a href="/">Home</a> <a href="/how-it-works/" aria-current="page">How it works</a> <a href="/leaderboards/">Leaderboards</a> <a href="/about/">About</a></nav>
+  </header>
+
+  <section class="panel" aria-labelledby="play-h">
+    <h2 id="play-h">Playing</h2>
+    <ul>
+      <li><strong>No accounts, no downloads.</strong> Open a game, create a table, and share the code or invite link. Your partner types the code and you're playing.</li>
+      <li><strong>Play someone new.</strong> Every game has a Play someone new button. It matches you with another player who's waiting, or opens a table and plays a chime when someone joins. The home page shows when players are waiting.</li>
+      <li><strong>Practice</strong> against the computer in every game. The computer plays under a name, and it's always marked as the computer.</li>
+      <li><strong>Everyone plays.</strong> Real cards and dice on screen, and full screen reader support: every card, die and move is announced, and each part of the table has its own heading. Tested with NVDA and VoiceOver.</li>
+      <li><strong>Sound effects</strong> for every move, with a Sound button at the top of each game to turn them off.</li>
+      <li><strong>Phones and computers.</strong> iPhone, Android, Windows or Mac, in any modern browser.</li>
+      <li>Each game has its own rules under <strong>How to play</strong>, at the bottom of the game's page.</li>
+    </ul>
+  </section>
+
+  <section class="panel" aria-labelledby="lb-h">
+    <h2 id="lb-h">Leaderboards</h2>
+    <ul>
+      <li>Every game has two top-five lists: <strong>most games won overall</strong>, and <strong>most games won in a row</strong>.</li>
+      <li>Only games against other players count. Practice games against the computer don't.</li>
+      <li>Leaving a game in progress counts as a loss. Playing against yourself doesn't count.</li>
+      <li>Your <strong>player code</strong> is how the leaderboards know it's you, with no account. Find it at the bottom of the Leaderboards page, and type it on another phone or computer to keep your wins there.</li>
+    </ul>
+  </section>
+
+  <p><a class="play" href="/">Pick a game</a></p>
+  <footer>EvenPlay, made by smoovgunner with Claude.</footer>
+</main>
+<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}</script>
+</body>
+</html>

@@ -42,6 +42,8 @@ h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.12em; color: 
 .art { display: flex; height: 74px; align-items: flex-end; padding-left: 8px; }
 .art span { width: 46px; height: 66px; border-radius: 8px; border: 2px solid #f7f3ea; margin-left: -10px; display: grid; place-items: center; font-family: var(--font-display); font-size: 20px; box-shadow: 0 3px 8px rgba(0,0,0,0.3); }
 .art span:nth-child(1) { transform: rotate(-10deg); } .art span:nth-child(2) { transform: rotate(-3deg) translateY(-4px); } .art span:nth-child(3) { transform: rotate(5deg); }
+.site-nav { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-size: 18px; }
+.site-nav a { color: var(--gold); }
 .how { background: rgba(0,0,0,0.22); border-radius: 18px; padding: 18px; }
 .how ul { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
 .waiting { margin: 0; font-weight: 700; color: var(--gold); }
@@ -53,8 +55,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
   <header>
     <h1><span class="even">Even</span>Play</h1>
     <p class="tag">Free card and dice games for two. Play a friend, find someone new, or take on the computer.</p>
-    <p style="margin:14px 0 0"><a class="play" href="/leaderboards/" style="background:transparent;color:var(--gold);border:2px solid var(--gold)">See the leaderboards</a> <a class="play" href="/about/" style="background:transparent;color:var(--gold);border:2px solid var(--gold)">About EvenPlay</a></p>
-  </header>
+    <nav aria-label="EvenPlay" class="site-nav"><a href="/" aria-current="page">Home</a> <a href="/how-it-works/">How it works</a> <a href="/leaderboards/">Leaderboards</a> <a href="/about/">About</a></nav>  </header>
 
   <section aria-labelledby="games-h">
     <h2 id="games-h">Pick a game</h2>
@@ -118,20 +119,8 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
     </ul>
   </section>
 
-  <section class="how" aria-labelledby="how-h">
-    <h2 id="how-h">How it works</h2>
-    <ul>
-      <li><strong>No accounts, no downloads.</strong> Open a game, create a table, and share the code or invite link. Your partner types the code and you're playing.</li>
-      <li><strong>Play someone new.</strong> Every game has a Play someone new button that matches you with another player who's waiting.</li>
-      <li><strong>Everyone plays.</strong> Real cards and dice on screen, and full screen reader support: every move is announced. Tested with NVDA and VoiceOver.</li>
-      <li><strong>Sound effects</strong> for every move, with a switch to turn them off.</li>
-      <li><strong>Phones and computers.</strong> iPhone, Android, Windows or Mac, in any modern browser.</li>
-      <li><strong>Practice</strong> against the computer in every game.</li>
-      <li><strong>Leaderboards</strong> for every game: longest win streaks against players and against the computer.</li>
-    </ul>
-  </section>
 
-  <footer>EvenPlay, made by smoovgunner with Claude. <a href="/about/" style="color:inherit">About EvenPlay</a> · <a href="/leaderboards/" style="color:inherit">Leaderboards</a></footer>
+  <footer>EvenPlay, made by smoovgunner with Claude.</footer>
 </main>
 <script>
 // Show how many players are waiting at a public table for each game.
@@ -147,5 +136,6 @@ async function waiting() {
 }
 waiting(); setInterval(waiting, 20000);
 </script>
+<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}</script>
 </body>
 </html>

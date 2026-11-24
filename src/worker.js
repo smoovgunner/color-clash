@@ -56,9 +56,18 @@ async function sha256(text) {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// Pages counted for the admin stats page (visits per day). Nothing about the visitor is stored.
+const PAGES = new Set(["/", "/how-it-works/", "/leaderboards/", "/about/", "/color-clash/", "/letter-flip/", "/rummy/", "/deal-rush/", "/dice-dash/", "/survey-showdown/", "/high-rollers/"]);
+
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
+    // each page pings /api/hit once when it opens (pages are served before this code runs)
+    if (url.pathname === "/api/hit" && req.method === "POST") {
+      const page = (await req.text()).slice(0, 40);
+      if (PAGES.has(page)) ctx.waitUntil(env.BOARD.get(env.BOARD.idFromName("main")).fetch("https://board/visit", { method: "POST", body: JSON.stringify({ page }) }).catch(() => {}));
+      return new Response(null, { status: 204 });
+    }
     if (url.pathname.startsWith("/api/board") || url.pathname.startsWith("/api/admin") || url.pathname.startsWith("/api/lobby")) {
       return env.BOARD.get(env.BOARD.idFromName("main")).fetch(req);
     }
@@ -209,7 +218,7 @@ class Room extends DurableObject {
     const st = this.st;
     if (st.status === "playing") st.reported = false;
     const final = st.status === "over" && !st.reported && (this.rules === rummy ? st.matchOver : true);
-    if (final) { st.reported = true; await this.report(st.winner, "end"); }
+    if (final) { st.reported = true; await this.report(st.winner, "end"); this.countGame(); }
     await this.save();
     this.broadcast();
     this.scheduleCpu();
@@ -233,6 +242,13 @@ class Room extends DurableObject {
       if (!a || this.rules.applyAction(this.st, 1, a)) return; // nothing sensible to do: wait for the player
       await this.afterMove();
     }, wait);
+  }
+
+  /** Count one finished game for the site stats. */
+  countGame() {
+    if (!this.game) return;
+    const board = this.env.BOARD.get(this.env.BOARD.idFromName("main"));
+    this.ctx.waitUntil(board.fetch("https://board/played", { method: "POST", body: JSON.stringify({ game: this.game, mode: this.st.cpu ? "cpu" : "pvp" }) }).catch(() => {}));
   }
 
   /** Send a finished game to the leaderboards. winner: seat number, or -1 for a tie. */
@@ -345,6 +361,20 @@ export class Board extends DurableObject {
       return json({ code: mine ? mine.code : "P" + makeCode(), waiting: true });
     }
 
+    // ---- site stats: page visits and finished games, per day ----
+    const day = () => new Date().toISOString().slice(0, 10);
+    const bump = async (key) => { await S.put(key, ((await S.get(key)) || 0) + 1); };
+    if (url.pathname === "/visit" && req.method === "POST") {
+      const b = await req.json().catch(() => ({}));
+      if (PAGES.has(b.page)) { await bump("v:" + day() + ":" + b.page); await bump("vt:" + b.page); }
+      return json({ ok: true });
+    }
+    if (url.pathname === "/played" && req.method === "POST") {
+      const b = await req.json().catch(() => ({}));
+      if (GAMES[b.game] && ["pvp", "cpu"].includes(b.mode)) { await bump("g:" + day() + ":" + b.game + ":" + b.mode); await bump("gt:" + b.game + ":" + b.mode); }
+      return json({ ok: true });
+    }
+
     if (url.pathname === "/record" && req.method === "POST") {
       const { game, mode, results } = await req.json();
       if (!GAMES[game] || !["pvp", "cpu"].includes(mode)) return json({ ok: false });
@@ -406,6 +436,32 @@ export class Board extends DurableObject {
         for (const [k, e] of all) { const [, game, mode, player] = k.split(":"); rows.push({ game, mode, player, name: e.name, best: e.best, cur: e.cur, wins: e.wins }); }
         const bans = [...(await S.list({ prefix: "ban:" })).keys()].map((k) => k.slice(4));
         return json({ rows, bans });
+      }
+      if (body.action === "stats") {
+        const days = [];
+        for (let i = 6; i >= 0; i--) days.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10));
+        const games = Object.entries(GAMES).map(([id, name]) => {
+          const r = { id, name, pvp: 0, cpu: 0, week: 0 };
+          return r;
+        });
+        for (const g of games) {
+          g.pvp = (await S.get("gt:" + g.id + ":pvp")) || 0;
+          g.cpu = (await S.get("gt:" + g.id + ":cpu")) || 0;
+          for (const d of days) g.week += ((await S.get("g:" + d + ":" + g.id + ":pvp")) || 0) + ((await S.get("g:" + d + ":" + g.id + ":cpu")) || 0);
+        }
+        const pages = [];
+        for (const page of PAGES) {
+          let week = 0, today = 0;
+          for (const d of days) { const n = (await S.get("v:" + d + ":" + page)) || 0; week += n; if (d === days[6]) today = n; }
+          pages.push({ page, total: (await S.get("vt:" + page)) || 0, week, today });
+        }
+        return json({ games, pages });
+      }
+      if (body.action === "reset") {
+        // clear every leaderboard entry; removed players stay removed
+        const keys = [...(await S.list({ prefix: "e:" })).keys()];
+        for (let i = 0; i < keys.length; i += 128) await S.delete(keys.slice(i, i + 128));
+        return json({ ok: true, cleared: keys.length });
       }
       if (body.action === "remove" && PLAYER_RE.test(body.player || "")) {
         const keys = [...(await S.list({ prefix: "e:" })).keys()].filter((k) => k.endsWith(":" + body.player));

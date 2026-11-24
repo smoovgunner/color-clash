@@ -27,13 +27,22 @@ th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(255,2
 <body>
 <main>
   <h1>EvenPlay Admin</h1>
-  <p class="muted" style="margin:0">Remove a player from every leaderboard. Removed players stay off the boards, even if they keep playing.</p>
+  <p class="muted" style="margin:0">Site stats, and leaderboard tools: remove a player, or start the boards over.</p>
   <form id="login">
     <label for="pw">Admin password</label>
     <input id="pw" type="password" autocomplete="current-password">
     <p style="margin:10px 0 0"><button type="submit">Show players</button></p>
   </form>
   <p id="msg" role="status"></p>
+  <section id="stats" hidden aria-labelledby="stats-h">
+    <h2 id="stats-h">Site stats</h2>
+    <h3>Games finished, most played first</h3>
+    <div class="tbl"><table><thead><tr><th scope="col">Game</th><th scope="col">Last 7 days</th><th scope="col">All time, against players</th><th scope="col">All time, against the computer</th></tr></thead><tbody id="game-rows"></tbody></table></div>
+    <h3>Page visits</h3>
+    <div class="tbl"><table><thead><tr><th scope="col">Page</th><th scope="col">Today</th><th scope="col">Last 7 days</th><th scope="col">All time</th></tr></thead><tbody id="page-rows"></tbody></table></div>
+    <p class="muted">Counting started November 23, 2026. Today is in UTC time, so it rolls over at 7 PM Eastern.</p>
+    <p><button type="button" id="refresh-stats">Refresh stats</button></p>
+  </section>
   <section id="list" hidden aria-labelledby="list-h">
     <h2 id="list-h">Players on the boards</h2>
     <label for="filter">Search names</label>
@@ -41,6 +50,9 @@ th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(255,2
     <div class="tbl" style="margin-top:12px"><table><thead><tr><th scope="col">Name</th><th scope="col">Game</th><th scope="col">Against</th><th scope="col">Best</th><th scope="col">Action</th></tr></thead><tbody id="rows"></tbody></table></div>
     <h2>Removed players</h2>
     <ul id="bans"></ul>
+    <h2>Start the leaderboards over</h2>
+    <p class="muted">Clears every game's leaderboard for everyone. Removed players stay removed. This can't be undone.</p>
+    <p><button type="button" class="danger" id="reset-btn">Clear all leaderboards</button></p>
   </section>
 </main>
 <script>
@@ -81,10 +93,30 @@ th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(255,2
   }
   $("login").addEventListener("submit", async (e) => {
     e.preventDefault(); pw = $("pw").value;
-    try { await load(); $("list").hidden = false; $("msg").textContent = data.rows.length + " leaderboard entries."; $("list-h").setAttribute("tabindex", "-1"); $("list-h").focus(); }
+    try { await load(); await loadStats(); $("list").hidden = false; $("msg").textContent = data.rows.length + " leaderboard entries."; $("list-h").setAttribute("tabindex", "-1"); $("list-h").focus(); }
     catch (err) { $("msg").textContent = err.message; }
   });
   $("filter").addEventListener("input", draw);
+  const PAGE_NAMES = { "/": "Home", "/how-it-works/": "How it works", "/leaderboards/": "Leaderboards", "/about/": "About" };
+  function rows(tb, list, cells) {
+    tb.replaceChildren();
+    for (const r of list) { const tr = document.createElement("tr"); for (const v of cells(r)) { const td = document.createElement("td"); td.textContent = v; tr.append(td); } tb.append(tr); }
+  }
+  async function loadStats() {
+    const d = await call({ action: "stats" });
+    const games = d.games.slice().sort((a, b) => b.week - a.week || (b.pvp + b.cpu) - (a.pvp + a.cpu));
+    rows($("game-rows"), games, (g) => [g.name, g.week, g.pvp, g.cpu]);
+    const pages = d.pages.slice().sort((a, b) => b.week - a.week || b.total - a.total);
+    rows($("page-rows"), pages, (x) => [PAGE_NAMES[x.page] || GAMES[{ "/color-clash/": "cc", "/letter-flip/": "lf", "/rummy/": "rm", "/deal-rush/": "dr", "/dice-dash/": "dd", "/survey-showdown/": "ss", "/high-rollers/": "hr" }[x.page]] || x.page, x.today, x.week, x.total]);
+    $("stats").hidden = false;
+  }
+  $("refresh-stats").addEventListener("click", async () => { try { await loadStats(); $("msg").textContent = "Stats updated."; } catch (e) { $("msg").textContent = e.message; } });
+  let resetArmed = false;
+  $("reset-btn").addEventListener("click", async () => {
+    if (!resetArmed) { resetArmed = true; $("reset-btn").textContent = "Yes, clear every leaderboard"; $("msg").textContent = "Choose the button again to clear all leaderboards. This can't be undone."; return; }
+    try { const d = await call({ action: "reset" }); resetArmed = false; $("reset-btn").textContent = "Clear all leaderboards"; $("msg").textContent = "All leaderboards cleared (" + d.cleared + " entries)."; await load(); }
+    catch (e) { $("msg").textContent = e.message; }
+  });
 })();
 </script>
 </body>

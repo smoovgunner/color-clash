@@ -50,13 +50,12 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
 <main class="wrap">
   <header style="display:grid; gap:10px">
     <h1><span>Even</span>Play Leaderboards</h1>
-    <nav aria-label="EvenPlay"><a href="/">All games</a> <a href="/about/">About EvenPlay</a></nav>
+    <nav aria-label="EvenPlay"><a href="/">Home</a> <a href="/how-it-works/">How it works</a> <a href="/leaderboards/" aria-current="page">Leaderboards</a> <a href="/about/">About</a></nav>
   </header>
 
   <div class="panel">
     <label for="game">Choose a game</label>
     <select id="game"></select>
-    <p class="muted" style="margin:10px 0 0">Games against other players. Practice games against the computer don't count here.</p>
   </div>
 
   <div class="boards" id="boards">
@@ -148,5 +147,6 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
   load();
 })();
 </script>
+<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}</script>
 </body>
 </html>
