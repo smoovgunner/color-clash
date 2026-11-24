@@ -2,6 +2,11 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "color-clash",
   "main": "src/worker.js",
+  // the site's own web address (the domain is in the same Cloudflare account)
+  "routes": [
+    { "pattern": "evenplaygames.com", "custom_domain": true },
+    { "pattern": "www.evenplaygames.com", "custom_domain": true }
+  ],
   "compatibility_date": "2025-09-01",
   "assets": { "directory": "./public", "binding": "ASSETS" },
   "durable_objects": {
