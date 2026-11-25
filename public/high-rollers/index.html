@@ -321,9 +321,11 @@ ul.plain { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
 </div>
 
 <script type="module">
+import { tr, translatePage } from "/shared/i18n.js";
 import { quickChat } from "/shared/quickchat.js";
 import { useSamples } from "/sounds/samples.js";
 import { ROUNDS, HOUSE_DICE, money, payoutFor, applyAction, viewFor, cpuAction, newTable } from "./rules.js";
+translatePage();
 
 const $ = (id) => document.getElementById(id);
 let cpuGame = false, autoDeal = null;
@@ -475,7 +477,7 @@ function eventText(ev) {
   }
   return "";
 }
-function say(text) { const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
+function say(text) { text = tr(text); const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
 function problem(text) { $("msg").textContent = text; say(text); playSounds(["nope"]); }
 function eventSounds(ev) {
   if (ev.t === "roll") return ["roll"];

@@ -25,7 +25,7 @@ const WORDS = [
 const EMOTES = 9;
 
 // Names for the computer player. The page always says it's the computer.
-const BOTS = ["Lucky Lou", "Dicey Dana", "Big Mike", "Ace", "Queenie", "Slick Rick", "Penny", "Domino", "Mo Money", "Skip", "Sunny", "Wild Card Willa", "Tex", "Professor Pip", "Rosie", "Captain Kev"];
+const BOTS = ["Lucky Lou", "Dicey Dana", "Big Mike", "Ace", "Queenie", "Slick Rick", "Penny", "Domino", "Mo Money", "Skip", "Sunny", "Tex", "Professor Pip", "Rosie", "Captain Kev"];
 const IDLE_MS = 7 * 24 * 60 * 60 * 1000; // a room with no moves for a week is cleared
 
 function makeCode() {

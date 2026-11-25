@@ -315,8 +315,10 @@ footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
 </div>
 
 <script type="module">
+import { tr, translatePage } from "/shared/i18n.js";
 import { quickChat } from "/shared/quickchat.js";
 import { applyAction, viewFor, cpuAction, newTable, ROUNDS, STRIKES } from "./rules.js";
+translatePage();
 
 const $ = (id) => document.getElementById(id);
 let cpuGame = false, autoDeal = null;
@@ -440,7 +442,7 @@ function eventText(ev) {
   }
   return "";
 }
-function say(text) { const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
+function say(text) { text = tr(text); const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
 function problem(text) { $("msg").textContent = text; say(text); playSounds(["nope"]); }
 function eventSounds(ev) {
   if (ev.t === "guess") return ev.idx >= 0 ? ["ding"] : ev.phase === "faceoff" || ev.phase === "steal" ? ["buzz"] : [];

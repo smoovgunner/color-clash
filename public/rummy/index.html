@@ -329,9 +329,11 @@ button.pc.selected { transform: translateY(-14px); box-shadow: 0 0 0 4px var(--g
 </div>
 
 <script type="module">
+import { tr, translatePage } from "/shared/i18n.js";
 import { quickChat } from "/shared/quickchat.js";
 import { useSamples } from "/sounds/samples.js";
 import { applyAction, viewFor, cpuAction, newTable, cardName, rankName, suitName, meldKind, fitsMeld, describeMeld, findMelds, handPoints } from "./rules.js";
+translatePage();
 
 const $ = (id) => document.getElementById(id);
 let cpuGame = false, autoDeal = null;
@@ -467,7 +469,7 @@ function turnText() {
   if (view.phase === "draw") return "Your turn. Draw from the pile" + (view.top ? ", or take " + the(view.top) + "." : ".");
   return "Lay down or add to melds if you can, then discard one card.";
 }
-function say(text) { const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
+function say(text) { text = tr(text); const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
 function eventSounds(ev) {
   if (ev.t === "deal") return ["shuffle"];
   if (ev.t === "draw") return ["draw"];

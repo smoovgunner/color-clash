@@ -310,9 +310,11 @@ footer { color: var(--ink-soft); font-size: 14px; text-align: center; }
 </div>
 
 <script type="module">
+import { tr, translatePage } from "/shared/i18n.js";
 import { quickChat } from "/shared/quickchat.js";
 import { useSamples } from "/sounds/samples.js";
 import { COLORS, VALS, cardName, newTable, applyAction, viewFor, cpuAction, WAR_CARD } from "./game.js";
+translatePage();
 
 const GLYPH = { S: "⊘", R: "⇄", D: "+2", W: "", F: "+4" };
 const ORDER = "rygbw", VORDER = "0123456789SRDWF";
@@ -448,7 +450,7 @@ function turnText() {
   return view.turn === view.you ? "Your turn." : nameOf(view.turn) + "'s turn.";
 }
 function say(text) {
-  const el = $("status");
+ text = tr(text);  const el = $("status");
   el.textContent = "";
   setTimeout(() => { el.textContent = text; }, 60);
 }

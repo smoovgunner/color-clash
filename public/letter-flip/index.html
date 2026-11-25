@@ -360,9 +360,11 @@ footer a, .games a { color: var(--gold); }
 </div>
 
 <script type="module">
+import { tr, translatePage } from "/shared/i18n.js";
 import { quickChat } from "/shared/quickchat.js";
 import { useSamples } from "/sounds/samples.js";
 import { applyAction, viewFor, cpuAction, newTable, isBlank, sides, cardText, diff, cardFor, wordValue, TARGETS } from "./rules.js";
+translatePage();
 
 const $ = (id) => document.getElementById(id);
 let cpuGame = false, autoDeal = null;
@@ -501,7 +503,7 @@ function turnText() {
   return view.turn === view.you ? "Your turn. The word is " + view.word + "." : nameOf(view.turn) + "'s turn.";
 }
 function say(text) {
-  const el = $("status");
+ text = tr(text);  const el = $("status");
   el.textContent = "";
   setTimeout(() => { el.textContent = text; }, 60);
 }

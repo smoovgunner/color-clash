@@ -155,5 +155,6 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
 </script>
 <script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}
 try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js"); } catch (e) {}</script>
+<script type="module">import { translatePage } from "/shared/i18n.js"; translatePage();</script>
 </body>
 </html>

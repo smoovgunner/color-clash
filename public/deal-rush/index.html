@@ -357,9 +357,11 @@ button.dc.selected { transform: translateY(-12px); box-shadow: 0 0 0 4px var(--g
 </div>
 
 <script type="module">
+import { tr, translatePage } from "/shared/i18n.js";
 import { quickChat } from "/shared/quickchat.js";
 import { useSamples } from "/sounds/samples.js";
 import { CARDS, COLORS, ACTIONS, HAND_LIMIT, PLAYS, SETS_TO_WIN, cardName, applyAction, viewFor, cpuAction, newTable,
+translatePage();
   isFull, setRent, rentFor, canBe, payValue, autoPay, fullColors, worth } from "./rules.js";
 
 const $ = (id) => document.getElementById(id);
@@ -540,7 +542,7 @@ function eventText(ev) {
     default: return "";
   }
 }
-function say(text) { const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
+function say(text) { text = tr(text); const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
 function problem(text) { $("msg").textContent = text; say(text); playSounds(["nope"]); }
 function eventSounds(ev) {
   switch (ev.t) {

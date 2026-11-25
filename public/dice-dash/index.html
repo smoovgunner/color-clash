@@ -302,9 +302,11 @@ table.sc { width: 100%; border-collapse: collapse; font-variant-numeric: tabular
 </div>
 
 <script type="module">
+import { tr, translatePage } from "/shared/i18n.js";
 import { quickChat } from "/shared/quickchat.js";
 import { useSamples } from "/sounds/samples.js";
 import { BOXES, ROLLS, UPPER_BONUS_AT, UPPER_BONUS, scoreFor, jokerOn, totals, applyAction, viewFor, cpuAction, newTable } from "./rules.js";
+translatePage();
 
 const $ = (id) => document.getElementById(id);
 let cpuGame = false, autoDeal = null;
@@ -427,7 +429,7 @@ function eventText(ev) {
   }
   return "";
 }
-function say(text) { const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
+function say(text) { text = tr(text); const el = $("status"); el.textContent = ""; setTimeout(() => { el.textContent = text; }, 60); }
 function problem(text) { $("msg").textContent = text; say(text); playSounds(["nope"]); }
 function eventSounds(ev) {
   if (ev.t === "roll") return ["roll"];
