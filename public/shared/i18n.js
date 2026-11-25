@@ -9,6 +9,9 @@ function pick() {
   return n.startsWith("es") ? "es" : n.startsWith("vi") ? "vi" : "en";
 }
 export const lang = pick();
+const GAME = (typeof location !== "undefined" ? location.pathname.split("/")[1] : "") || "";
+// words that mean something different in one game
+const OVERRIDE = { "deal-rush": { es: { House: "Casa" }, vi: { House: "Nhà" } } };
 export function setLang(l) { try { localStorage.setItem("ep-lang", l); } catch (e) {} location.reload(); }
 
 // ---------- whole strings ----------
@@ -233,6 +236,84 @@ const ES = {
   "First to 100 points wins the match. If the draw pile runs out three times, the round is a draw.": "Gana la partida quien llegue primero a 100 puntos. Si el mazo se acaba tres veces, la ronda es empate.",
   "How to play a move: select cards in your hand (tap a card to select it; tap again to unselect), then choose Lay down as a meld, Add to a meld, or Discard. The Hint button names the melds you could make; both players get it.": "Cómo jugar: selecciona cartas de tu mano (toca una carta para seleccionarla; tócala otra vez para quitarla), luego elige Bajar como combinación, Añadir a una combinación o Descartar. El botón Pista dice qué combinaciones podrías hacer; ambos jugadores lo tienen.",
   "Rummy is an": "Rummy es un juego de",
+  // Deal Rush
+  "Accept": "Aceptar",
+  "Accept the block": "Aceptar el bloqueo",
+  "Any color": "Cualquier color",
+  "Block an action": "Bloquear una acción",
+  "Blocked! The move doesn't happen.": "¡Bloqueado! La jugada no ocurre.",
+  "Choose a card to read about it.": "Elige una carta para leer sobre ella.",
+  "Choose a card to see what it can do.": "Elige una carta para ver qué puede hacer.",
+  "Choose how to pay.": "Elige cómo pagar.",
+  "Choose cards to pay with, or use Pay automatically.": "Elige cartas para pagar, o usa Pagar automáticamente.",
+  "Counts as either color.": "Cuenta como cualquiera de los dos colores.",
+  "Once played, it stays that color.": "Una vez jugada, se queda de ese color.",
+  "Deal": "Deal",
+  "Draw 2 cards": "Robar 2 cartas",
+  "End turn": "Terminar turno",
+  "Game options": "Opciones de partida",
+  "Money": "Dinero",
+  "Move your wild property": "Mover tu propiedad comodín",
+  "Neither can be part of a full set.": "Ninguna puede ser parte de un grupo completo.",
+  "No change is given.": "No se da cambio.",
+  "No properties it can take right now": "No hay propiedades que pueda tomar ahora",
+  "No properties yet.": "Aún no hay propiedades.",
+  "Not discarding.": "No se descarta.",
+  "Chosen to discard.": "Elegida para descartar.",
+  "Off": "Desactivado",
+  "Pay automatically": "Pagar automáticamente",
+  "Pay from your bank and properties.": "Paga con tu banco y tus propiedades.",
+  "Pick the property you give in return.": "Elige la propiedad que das a cambio.",
+  "Play No Way!": "Jugar ¡Ni hablar!",
+  "Play again": "Jugar otra vez",
+  "Play: draw 2 more cards": "Jugar: robar 2 cartas más",
+  "RENT": "ALQUILER",
+  "Rent times 2": "Alquiler por 2",
+  "Station / Utility": "Estación / Servicio",
+  "Swap": "Cambio",
+  "Take 1 property": "Tomar 1 propiedad",
+  "Take a full set": "Tomar un grupo completo",
+  "Trade 1 for 1": "Cambiar 1 por 1",
+  "Three full sets of different colors always wins too.": "Tres grupos completos de colores distintos también ganan siempre.",
+  "Trade one of your properties for one of theirs.": "Cambia una de tus propiedades por una de las suyas.",
+  "Wait for your opponent to answer first.": "Espera primero la respuesta de tu rival.",
+  "Wait for your turn.": "Espera tu turno.",
+  "Your answer": "Tu respuesta",
+  "Your answer is needed.": "Se necesita tu respuesta.",
+  "Your opponent pays you 5 million.": "Tu rival te paga 5 millones.",
+  "Your opponent pays you 2 million.": "Tu rival te paga 2 millones.",
+  "Draw 2 more cards.": "Roba 2 cartas más.",
+  "Take one full property set from your opponent.": "Quita a tu rival un grupo de propiedades completo.",
+  "Block an action played against you, or block a No Way! played back at you.": "Bloquea una acción contra ti, o bloquea un ¡Ni hablar! que te devuelvan.",
+  "Take one property from your opponent that isn't part of a full set.": "Quita a tu rival una propiedad que no sea parte de un grupo completo.",
+  "Trade one of your properties for one of theirs. Neither can be part of a full set.": "Cambia una de tus propiedades por una de las suyas. Ninguna puede ser parte de un grupo completo.",
+  "Play with a Rent card to double the rent.": "Juégala con una carta de Alquiler para duplicar el alquiler.",
+  "Add to a full set: plus 3 million rent. Not stations or utilities.": "Añádela a un grupo completo: 3 millones más de alquiler. No en estaciones ni servicios.",
+  "Add to a full set that has a house: plus 4 million rent. Not stations or utilities.": "Añádela a un grupo completo con casa: 4 millones más de alquiler. No en estaciones ni servicios.",
+  "Charge rent for a color you own.": "Cobra alquiler por un color que tengas.",
+  "You don't have a No Way! card.": "No tienes una carta ¡Ni hablar!",
+  "You've used all 3 plays. Choose End turn.": "Usaste tus 3 jugadas. Elige Terminar turno.",
+  "You've used all 3 plays this turn. Choose End turn.": "Usaste tus 3 jugadas de este turno. Elige Terminar turno.",
+  "Worth nothing as payment.": "No vale nada como pago.",
+  "That wild card is worth nothing as payment.": "Ese comodín no vale nada como pago.",
+  "Properties can't go in the bank. Play them on your table.": "Las propiedades no van al banco. Juégalas en tu mesa.",
+  "Wild cards stay the color you played them as.": "Los comodines se quedan del color con el que los jugaste.",
+  "Goal: be first to have 3 full property sets of different colors on your table. Each property card says how many make a full set.": "Objetivo: ser el primero en tener en tu mesa 3 grupos de propiedades completos de colores distintos. Cada carta de propiedad dice cuántas forman un grupo completo.",
+  "Your turn: you draw 2 cards (5 if your hand is empty), then make up to 3 plays, then End turn. You can hold at most 7 cards at the end of your turn.": "Tu turno: robas 2 cartas (5 si tu mano está vacía), haces hasta 3 jugadas y luego Terminar turno. Puedes tener como máximo 7 cartas al final de tu turno.",
+  "A play is: put a property on your table; put a money or action card in your bank as money; or use an action card.": "Una jugada es: poner una propiedad en tu mesa; poner una carta de dinero o de acción en tu banco como dinero; o usar una carta de acción.",
+  "Rent: charge your opponent for a color you own. Double Rent, played with it, doubles it (each card is a play).": "Alquiler: cobra a tu rival por un color que tengas. Alquiler doble, jugado con ella, lo duplica (cada carta es una jugada).",
+  "Swipe takes one property, Swap trades one for one (neither can be part of a full set). Set Steal takes a whole full set. Collect Debt is 5 million, Party Time is 2 million. Bonus Draw draws 2 cards. House adds 3 million rent to a full set, Hotel adds 4 more.": "Birlar quita una propiedad, Cambio cambia una por una (ninguna puede ser parte de un grupo completo). Robo de grupo quita un grupo completo entero. Cobrar deuda son 5 millones, Hora de fiesta son 2 millones. Robo extra roba 2 cartas. Casa suma 3 millones de alquiler a un grupo completo, Hotel suma 4 más.",
+  "No Way! blocks an action played on you. Your opponent can play their own No Way! to block your block. It doesn't use a play.": "¡Ni hablar! bloquea una acción contra ti. Tu rival puede jugar su propio ¡Ni hablar! para bloquear tu bloqueo. No gasta jugada.",
+  "Paying: you pay from your bank and your properties, never from your hand. No change is given. If you can't cover it, you pay everything you have. \"Pay automatically\" picks the smallest payment for you.": "Pagar: pagas con tu banco y tus propiedades, nunca con tu mano. No se da cambio. Si no te alcanza, pagas todo lo que tienes. \"Pagar automáticamente\" elige el pago más pequeño por ti.",
+  "Wild properties stay the color you play them as. A full set needs at least one regular property.": "Las propiedades comodín se quedan del color con que las juegas. Un grupo completo necesita al menos una propiedad normal.",
+  "Game options, chosen before dealing: Bank win (first to bank 30, 50 or 75 million wins) and Bankruptcy (if you owe money and can't pay it in full, you lose; it doesn't count during each player's first 3 turns).": "Opciones de partida, elegidas antes de repartir: Victoria por banco (gana quien ahorre primero 30, 50 o 75 millones) y Bancarrota (si debes dinero y no puedes pagarlo completo, pierdes; no cuenta en los primeros 3 turnos de cada jugador).",
+  "Screen reader tip: choose a card in your hand to hear everything you can do with it. Each part of the table has its own heading.": "Consejo para lectores de pantalla: elige una carta de tu mano para oír todo lo que puedes hacer con ella. Cada parte de la mesa tiene su propio encabezado.",
+  "Deal Rush is an": "Deal Rush es un juego de",
+  "Both players are here.": "Los dos jugadores están aquí.",
+  "Deal the cards to start.": "Reparte para empezar.",
+  "(you have none)": "(no tienes)",
+  "HOUSE": "CASA",
+  "HOTEL": "HOTEL",
 };
 
 const VI = {
@@ -447,6 +528,84 @@ const VI = {
   "First to 100 points wins the match. If the draw pile runs out three times, the round is a draw.": "Ai đạt 100 điểm trước sẽ thắng trận. Nếu chồng bài hết ba lần, ván đó hòa.",
   "How to play a move: select cards in your hand (tap a card to select it; tap again to unselect), then choose Lay down as a meld, Add to a meld, or Discard. The Hint button names the melds you could make; both players get it.": "Cách đi: chọn bài trên tay (chạm một lá để chọn; chạm lại để bỏ chọn), rồi chọn Hạ thành bộ, Gửi vào bộ, hoặc Bỏ bài. Nút Gợi ý cho biết bộ bạn có thể tạo; cả hai người đều dùng được.",
   "Rummy is an": "Rummy là một trò chơi của",
+  // Deal Rush
+  "Accept": "Chấp nhận",
+  "Accept the block": "Chấp nhận bị chặn",
+  "Any color": "Mọi màu",
+  "Block an action": "Chặn một hành động",
+  "Blocked! The move doesn't happen.": "Bị chặn! Nước đi không diễn ra.",
+  "Choose a card to read about it.": "Chọn một lá để đọc thông tin.",
+  "Choose a card to see what it can do.": "Chọn một lá để xem nó làm được gì.",
+  "Choose how to pay.": "Chọn cách trả.",
+  "Choose cards to pay with, or use Pay automatically.": "Chọn lá để trả, hoặc dùng Tự động trả.",
+  "Counts as either color.": "Tính là một trong hai màu.",
+  "Once played, it stays that color.": "Đã đặt thì giữ nguyên màu đó.",
+  "Deal": "Deal",
+  "Draw 2 cards": "Rút 2 lá",
+  "End turn": "Kết thúc lượt",
+  "Game options": "Tùy chọn ván",
+  "Money": "Tiền",
+  "Move your wild property": "Chuyển đất đa năng của bạn",
+  "Neither can be part of a full set.": "Cả hai đều không được thuộc bộ đầy đủ.",
+  "No change is given.": "Không thối tiền.",
+  "No properties it can take right now": "Hiện không có đất nào để lấy",
+  "No properties yet.": "Chưa có đất nào.",
+  "Not discarding.": "Không bỏ.",
+  "Chosen to discard.": "Đã chọn để bỏ.",
+  "Off": "Tắt",
+  "Pay automatically": "Tự động trả",
+  "Pay from your bank and properties.": "Trả bằng ngân hàng và đất của bạn.",
+  "Pick the property you give in return.": "Chọn đất bạn đưa lại.",
+  "Play No Way!": "Đánh Không đời nào!",
+  "Play again": "Chơi lại",
+  "Play: draw 2 more cards": "Đánh: rút thêm 2 lá",
+  "RENT": "THUÊ",
+  "Rent times 2": "Tiền thuê nhân 2",
+  "Station / Utility": "Nhà ga / Tiện ích",
+  "Swap": "Đổi chác",
+  "Take 1 property": "Lấy 1 đất",
+  "Take a full set": "Lấy một bộ đầy đủ",
+  "Trade 1 for 1": "Đổi 1 lấy 1",
+  "Three full sets of different colors always wins too.": "Ba bộ đầy đủ khác màu luôn thắng.",
+  "Trade one of your properties for one of theirs.": "Đổi một đất của bạn lấy một đất của họ.",
+  "Wait for your opponent to answer first.": "Chờ đối thủ trả lời trước.",
+  "Wait for your turn.": "Chờ đến lượt bạn.",
+  "Your answer": "Câu trả lời của bạn",
+  "Your answer is needed.": "Cần bạn trả lời.",
+  "Your opponent pays you 5 million.": "Đối thủ trả bạn 5 triệu.",
+  "Your opponent pays you 2 million.": "Đối thủ trả bạn 2 triệu.",
+  "Draw 2 more cards.": "Rút thêm 2 lá.",
+  "Take one full property set from your opponent.": "Lấy một bộ đất đầy đủ của đối thủ.",
+  "Block an action played against you, or block a No Way! played back at you.": "Chặn một hành động nhắm vào bạn, hoặc chặn lá Không đời nào! bị đánh lại.",
+  "Take one property from your opponent that isn't part of a full set.": "Lấy một đất của đối thủ không thuộc bộ đầy đủ.",
+  "Trade one of your properties for one of theirs. Neither can be part of a full set.": "Đổi một đất của bạn lấy một đất của họ. Cả hai đều không được thuộc bộ đầy đủ.",
+  "Play with a Rent card to double the rent.": "Đánh cùng lá Thuê để nhân đôi tiền thuê.",
+  "Add to a full set: plus 3 million rent. Not stations or utilities.": "Thêm vào bộ đầy đủ: tiền thuê cộng 3 triệu. Không dùng cho nhà ga hay tiện ích.",
+  "Add to a full set that has a house: plus 4 million rent. Not stations or utilities.": "Thêm vào bộ đầy đủ đã có nhà: tiền thuê cộng 4 triệu. Không dùng cho nhà ga hay tiện ích.",
+  "Charge rent for a color you own.": "Thu tiền thuê cho màu bạn có.",
+  "You don't have a No Way! card.": "Bạn không có lá Không đời nào!",
+  "You've used all 3 plays. Choose End turn.": "Bạn đã dùng hết 3 lượt đi. Chọn Kết thúc lượt.",
+  "You've used all 3 plays this turn. Choose End turn.": "Bạn đã dùng hết 3 lượt đi. Chọn Kết thúc lượt.",
+  "Worth nothing as payment.": "Không có giá trị để trả.",
+  "That wild card is worth nothing as payment.": "Lá đa năng đó không có giá trị để trả.",
+  "Properties can't go in the bank. Play them on your table.": "Đất không gửi vào ngân hàng được. Hãy đặt lên bàn.",
+  "Wild cards stay the color you played them as.": "Lá đa năng giữ nguyên màu bạn đã đặt.",
+  "Goal: be first to have 3 full property sets of different colors on your table. Each property card says how many make a full set.": "Mục tiêu: là người đầu tiên có 3 bộ đất đầy đủ khác màu trên bàn. Mỗi lá đất ghi số lá cần cho một bộ đầy đủ.",
+  "Your turn: you draw 2 cards (5 if your hand is empty), then make up to 3 plays, then End turn. You can hold at most 7 cards at the end of your turn.": "Đến lượt: rút 2 lá (5 lá nếu hết bài), đi tối đa 3 lượt, rồi Kết thúc lượt. Cuối lượt bạn chỉ được giữ tối đa 7 lá.",
+  "A play is: put a property on your table; put a money or action card in your bank as money; or use an action card.": "Một lượt đi là: đặt đất lên bàn; gửi lá tiền hoặc lá hành động vào ngân hàng làm tiền; hoặc dùng lá hành động.",
+  "Rent: charge your opponent for a color you own. Double Rent, played with it, doubles it (each card is a play).": "Thuê: thu tiền đối thủ cho màu bạn có. Thuê gấp đôi, đánh kèm, sẽ nhân đôi (mỗi lá tính một lượt đi).",
+  "Swipe takes one property, Swap trades one for one (neither can be part of a full set). Set Steal takes a whole full set. Collect Debt is 5 million, Party Time is 2 million. Bonus Draw draws 2 cards. House adds 3 million rent to a full set, Hotel adds 4 more.": "Chôm lấy một đất, Đổi chác đổi một lấy một (cả hai không thuộc bộ đầy đủ). Cướp bộ lấy cả một bộ đầy đủ. Đòi nợ là 5 triệu, Tiệc tùng là 2 triệu. Rút thêm rút 2 lá. Nhà cộng 3 triệu tiền thuê cho bộ đầy đủ, Khách sạn cộng thêm 4.",
+  "No Way! blocks an action played on you. Your opponent can play their own No Way! to block your block. It doesn't use a play.": "Không đời nào! chặn một hành động nhắm vào bạn. Đối thủ có thể đánh lá Không đời nào! của họ để chặn lại. Không tính lượt đi.",
+  "Paying: you pay from your bank and your properties, never from your hand. No change is given. If you can't cover it, you pay everything you have. \"Pay automatically\" picks the smallest payment for you.": "Trả tiền: trả bằng ngân hàng và đất, không bao giờ từ bài trên tay. Không thối tiền. Nếu không đủ, bạn trả tất cả những gì có. \"Tự động trả\" chọn cách trả ít nhất cho bạn.",
+  "Wild properties stay the color you play them as. A full set needs at least one regular property.": "Đất đa năng giữ màu bạn đã đặt. Một bộ đầy đủ cần ít nhất một đất thường.",
+  "Game options, chosen before dealing: Bank win (first to bank 30, 50 or 75 million wins) and Bankruptcy (if you owe money and can't pay it in full, you lose; it doesn't count during each player's first 3 turns).": "Tùy chọn ván, chọn trước khi chia: Thắng bằng ngân hàng (ai gửi đủ 30, 50 hoặc 75 triệu trước sẽ thắng) và Phá sản (nợ mà không trả đủ thì thua; không tính trong 3 lượt đầu của mỗi người).",
+  "Screen reader tip: choose a card in your hand to hear everything you can do with it. Each part of the table has its own heading.": "Mẹo cho trình đọc màn hình: chọn một lá trên tay để nghe mọi việc bạn có thể làm với nó. Mỗi phần của bàn có tiêu đề riêng.",
+  "Deal Rush is an": "Deal Rush là một trò chơi của",
+  "Both players are here.": "Đã đủ hai người.",
+  "Deal the cards to start.": "Chia bài để bắt đầu.",
+  "(you have none)": "(bạn không có)",
+  "HOUSE": "NHÀ",
+  "HOTEL": "KHÁCH SẠN",
 };
 
 // ---------- card names (Color Clash) ----------
@@ -515,7 +674,7 @@ const P = [
   [/^(.+) has 1 cards?\.?$/, "$1 tiene 1 carta.", "$1 có 1 lá."],
   [/^(.+) has (\d+) cards?\.?$/, "$1 tiene $2 cartas.", "$1 có $2 lá."],
   [/^One card left!$/, "¡Le queda una carta!", "Chỉ còn một lá!"],
-  [/^You have (\w+) (.+?)s\.$/, "Tienes $1 de $2.", "Bạn có $1 lá $2."],
+  [/^You have (two|three|four|five|six|seven|eight) (.+?)s\.$/, "Tienes $1 de $2.", "Bạn có $1 lá $2."],
   [/^Stack them\?$/, "¿Apilarlas?", "Đánh chồng không?"],
   [/^You have (\w+) (.+)\. Stack them\?$/, "Tienes $1 $2. ¿Apilarlas?", "Bạn có $1 lá $2. Đánh chồng không?"],
   [/^Play just the (.+)$/, "Jugar solo $1", "Chỉ đánh $1"],
@@ -640,8 +799,8 @@ const P = [
   [/^(\d+) cards? selected\.$/, "$1 seleccionadas.", "Đã chọn $1 lá."],
   [/^Hand sorted (.+)\.$/, "Mano ordenada $1.", "Đã xếp bài $1."],
   [/^Sort: (.+)$/, "Orden: $1", "Sắp xếp: $1"],
-  [/^Discard the (.+)$/, "Descartar $1", "Bỏ $1"],
-  [/^Take the (.+)$/, "Tomar $1", "Lấy $1"],
+  [/^Discard the (.+ of (?:Hearts|Diamonds|Clubs|Spades))$/, "Descartar $1", "Bỏ $1"],
+  [/^Take the (.+ of (?:Hearts|Diamonds|Clubs|Spades))$/, "Tomar $1", "Lấy $1"],
   [/^Add the (.+) to (.+)$/, "Añadir $1 a $2", "Gửi $1 vào $2"],
   [/^Lay down as a (set|run)$/, "Bajar como $1", "Hạ thành $1"],
   [/^The (.+) doesn't fit here$/, "$1 no encaja aquí", "$1 không hợp ở đây"],
@@ -654,6 +813,109 @@ const P = [
   [/^Select at least three cards that make a set or a run\. You have (\d+) selected\.$/, "Selecciona al menos tres cartas que formen un grupo o una escalera. Tienes $1 seleccionadas.", "Chọn ít nhất ba lá tạo thành bộ hoặc dây. Bạn đang chọn $1 lá."],
   [/^Select just one card to discard\. You have (\d+) selected\.$/, "Selecciona solo una carta para descartar. Tienes $1 seleccionadas.", "Chỉ chọn một lá để bỏ. Bạn đang chọn $1 lá."],
   [/^You can't throw back the (.+) you just took from the discard pile\.$/, "No puedes devolver $1 que acabas de tomar del descarte.", "Bạn không thể bỏ lại $1 vừa lấy từ chồng bỏ."],
+
+  // Deal Rush
+  [/^Win with (\d) full sets\.$/, "Gana con $1 grupos completos.", "Thắng khi có $1 bộ đầy đủ."],
+  [/^Win with (\d) full sets, or by banking (.+)\.$/, "Gana con $1 grupos completos, o ahorrando $2.", "Thắng khi có $1 bộ đầy đủ, hoặc khi gửi ngân hàng $2."],
+  [/^Win with (\d) full sets$/, "Gana con $1 grupos completos", "Thắng khi có $1 bộ đầy đủ"],
+  [/^Bankruptcy is on\.$/, "La bancarrota está activada.", "Đã bật luật phá sản."],
+  [/^(\d) plays left\.$/, "Te quedan $1 jugadas.", "Còn $1 lượt đi."],
+  [/^Your turn\. You drew (.+)\.$/, "Tu turno. Robaste $1.", "Đến lượt bạn. Bạn rút được $1."],
+  [/^(.+) drew (\d+) cards\.$/, "$1 robó $2 cartas.", "$1 rút $2 lá."],
+  [/^(.+) drew 2 more cards\.$/, "$1 robó 2 cartas más.", "$1 rút thêm 2 lá."],
+  [/^You banked (.+) as (.+)\.$/, "Pusiste $1 en tu banco como $2.", "Bạn gửi $1 vào ngân hàng với giá $2."],
+  [/^(.+) banked (.+) as (.+)\.$/, "$1 puso $2 en su banco como $3.", "$1 gửi $2 vào ngân hàng với giá $3."],
+  [/^You banked (.+)\.$/, "Pusiste $1 en tu banco.", "Bạn gửi $1 vào ngân hàng."],
+  [/^(.+) banked (.+)\.$/, "$1 puso $2 en su banco.", "$1 gửi $2 vào ngân hàng."],
+  [/^You played (a .+ property|a wild property as .+)\.$/, "Jugaste $1.", "Bạn đặt $1."],
+  [/^(.+) played (a .+ property|a wild property as .+)\.$/, "$1 jugó $2.", "$1 đặt $2."],
+  [/^(.+) moved a wild property to (.+)\.$/, "$1 movió una propiedad comodín a $2.", "$1 chuyển một đất đa năng sang $2."],
+  [/^You played No Way! back\.$/, "Respondiste con ¡Ni hablar!", "Bạn đáp lại bằng Không đời nào!"],
+  [/^You played No Way!$/, "Jugaste ¡Ni hablar!", "Bạn đánh Không đời nào!"],
+  [/^(.+) played No Way! back\.$/, "$1 respondió con ¡Ni hablar!", "$1 đáp lại bằng Không đời nào!"],
+  [/^(.+) played No Way!$/, "$1 jugó ¡Ni hablar!", "$1 đánh Không đời nào!"],
+  [/^Blocked!$/, "¡Bloqueado!", "Bị chặn!"],
+  [/^The move doesn't happen\.$/, "La jugada no ocurre.", "Nước đi không diễn ra."],
+  [/^(.+) (?:have|has) nothing to pay with, so nothing is paid\.$/, "$1 no tiene con qué pagar, así que no se paga nada.", "$1 không có gì để trả, nên không trả gì cả."],
+  [/^You paid (.+?) (\d+ million) from your bank \((.+)\) to cover the (\d+ million) (rent|debt|party charge)\.$/, "Pagaste a $1 $2 de tu banco ($3) para cubrir $4 de $5.", "Bạn trả $1 $2 từ ngân hàng ($3) để trả $4 $5."],
+  [/^You paid (.+?) (\d+ million) from your bank to cover the (\d+ million) (rent|debt|party charge)\.$/, "Pagaste a $1 $2 de tu banco para cubrir $3 de $4.", "Bạn trả $1 $2 từ ngân hàng để trả $3 $4."],
+  [/^(.+) paid you (\d+ million) from their bank \((.+)\) to cover the (\d+ million) (rent|debt|party charge)\.$/, "$1 te pagó $2 de su banco ($3) para cubrir $4 de $5.", "$1 trả bạn $2 từ ngân hàng ($3) để trả $4 $5."],
+  [/^(.+) paid you (\d+ million) from their bank to cover the (\d+ million) (rent|debt|party charge)\.$/, "$1 te pagó $2 de su banco para cubrir $3 de $4.", "$1 trả bạn $2 từ ngân hàng để trả $3 $4."],
+  [/^(.+) gave you (.+) to cover the (\d+ million) (rent|debt|party charge)\.$/, "$1 te dio $2 para cubrir $3 de $4.", "$1 đưa bạn $2 để trả $3 $4."],
+  [/^You gave (.+?) (the .+) to cover the (\d+ million) (rent|debt|party charge)\.$/, "Diste a $1 $2 para cubrir $3 de $4.", "Bạn đưa $1 $2 để trả $3 $4."],
+  [/^(.+) paid you (\d+ million) from their bank and gave you (.+) to cover the (\d+ million) (rent|debt|party charge)\.$/, "$1 te pagó $2 de su banco y te dio $3 para cubrir $4 de $5.", "$1 trả bạn $2 từ ngân hàng và đưa bạn $3 để trả $4 $5."],
+  [/^That property goes on your table, not in the bank\.$/, "Esa propiedad va a tu mesa, no al banco.", "Đất đó vào bàn của bạn, không vào ngân hàng."],
+  [/^Those properties go on your table, not in the bank\.$/, "Esas propiedades van a tu mesa, no al banco.", "Các đất đó vào bàn của bạn, không vào ngân hàng."],
+  [/^That property goes on (.+)'s table, not in the bank\.$/, "Esa propiedad va a la mesa de $1, no al banco.", "Đất đó vào bàn của $1, không vào ngân hàng."],
+  [/^Those properties go on (.+)'s table, not in the bank\.$/, "Esas propiedades van a la mesa de $1, no al banco.", "Các đất đó vào bàn của $1, không vào ngân hàng."],
+  [/^That's everything (?:you|they) had\.$/, "Es todo lo que tenía.", "Đó là tất cả những gì còn lại."],
+  [/^You took (the .+)\.$/, "Tomaste $1.", "Bạn lấy $1."],
+  [/^(.+) took (the .+)\.$/, "$1 tomó $2.", "$1 lấy $2."],
+  [/^You took the whole (.+) set!$/, "¡Tomaste todo el grupo $1!", "Bạn lấy cả bộ $1!"],
+  [/^(.+) took the whole (.+) set!$/, "¡$1 tomó todo el grupo $2!", "$1 lấy cả bộ $2!"],
+  [/^Swap done\.$/, "Cambio hecho.", "Đã đổi xong."],
+  [/^(.+) put a (house|hotel) on (your|.+'s) (.+) set\.$/, "$1 puso un $2 en el grupo $4.", "$1 đặt $2 lên bộ $4."],
+  [/^You discarded (.+)\.$/, "Descartaste $1.", "Bạn bỏ $1."],
+  [/^(.+) discarded (.+)\.$/, "$1 descartó $2.", "$1 bỏ $2."],
+  [/^You couldn't pay in full and went bankrupt\.$/, "No pudiste pagar todo y quebraste.", "Bạn không trả đủ và đã phá sản."],
+  [/^(.+) couldn't pay in full and went bankrupt\.$/, "$1 no pudo pagar todo y quebró.", "$1 không trả đủ và đã phá sản."],
+  [/^You have 3 full sets: (.+)\.$/, "Tienes 3 grupos completos: $1.", "Bạn có 3 bộ đầy đủ: $1."],
+  [/^(.+) has 3 full sets: (.+)\.$/, "$1 tiene 3 grupos completos: $2.", "$1 có 3 bộ đầy đủ: $2."],
+  [/^You charge (.+?) (\d+ million) rent for (.+?)(, doubled| ,doubled twice|, doubled twice)?\.$/, "Cobras a $1 $2 de alquiler por $3$4.", "Bạn thu của $1 $2 tiền thuê cho $3$4."],
+  [/^(.+) charges you (\d+ million) rent for (.+?)(, doubled|, doubled twice)?\.$/, "$1 te cobra $2 de alquiler por $3$4.", "$1 thu của bạn $2 tiền thuê cho $3$4."],
+  [/^(.+) plays (Collect Debt|Party Time): you owe (.+)\.$/, "$1 juega $2: debes $3.", "$1 đánh $2: bạn nợ $3."],
+  [/^You play (Collect Debt|Party Time): (.+) owes (.+)\.$/, "Juegas $1: $2 debe $3.", "Bạn đánh $1: $2 nợ $3."],
+  [/^(.+) plays Swipe to take your (.+)\.$/, "$1 juega Birlar para quitarte $2.", "$1 đánh Chôm để lấy $2 của bạn."],
+  [/^You play Swipe to take (.+)'s (.+)\.$/, "Juegas Birlar para quitarle $2 a $1.", "Bạn đánh Chôm để lấy $2 của $1."],
+  [/^(.+) plays Swap: (.+) for (.+)\.$/, "$1 juega Cambio: $2 por $3.", "$1 đánh Đổi chác: $2 lấy $3."],
+  [/^You play Swap: (.+) for (.+)\.$/, "Juegas Cambio: $1 por $2.", "Bạn đánh Đổi chác: $1 lấy $2."],
+  [/^(.+) plays Set Steal on your full (.+) set!$/, "¡$1 juega Robo de grupo sobre tu grupo $2 completo!", "$1 đánh Cướp bộ vào bộ $2 đầy đủ của bạn!"],
+  [/^You play Set Steal on (.+)'s full (.+) set!$/, "¡Juegas Robo de grupo sobre el grupo $2 completo de $1!", "Bạn đánh Cướp bộ vào bộ $2 đầy đủ của $1!"],
+  [/^(.+) has (\d+) cards in hand\.$/, "$1 tiene $2 cartas en la mano.", "$1 có $2 lá trên tay."],
+  [/^(.+) is collecting (.+) for (.+)\.$/, "$1 está cobrando $2 por $3.", "$1 đang thu $2 cho $3."],
+  [/^Your bank: (.+)\.$/, "Tu banco: $1.", "Ngân hàng của bạn: $1."],
+  [/^(.+)'s bank: (.+)\.$/, "Banco de $1: $2.", "Ngân hàng của $1: $2."],
+  [/^Your table: (\d) of (\d) full sets$/, "Tu mesa: $1 de $2 grupos completos", "Bàn của bạn: $1/$2 bộ đầy đủ"],
+  [/^(.+): (\d) of (\d) full sets$/, "$1: $2 de $3 grupos completos", "$1: $2/$3 bộ đầy đủ"],
+  [/^(.+): (\d) of (\d)(, full set)?\.$/, "$1: $2 de $3$4.", "$1: $2/$3$4."],
+  [/^Rent (\d+ million)\.$/, "Alquiler $1.", "Tiền thuê $1."],
+  [/^Rent by number owned: (.+)\.$/, "Alquiler según cuántas tengas: $1.", "Tiền thuê theo số lượng: $1."],
+  [/^Rent ([\d /]+)$/, "Alquiler $1", "Thuê $1"],
+  [/^\+(\d+)M rent$/, "+$1 M de alquiler", "+$1 tr tiền thuê"],
+  [/^Full set: (\d) cards\.$/, "Grupo completo: $1 cartas.", "Bộ đầy đủ: $1 lá."],
+  [/^Worth (.+) in the bank\.$/, "Vale $1 en el banco.", "Trị giá $1 trong ngân hàng."],
+  [/^Worth (.+)\.$/, "Vale $1.", "Trị giá $1."],
+  [/^Plays left this turn: (\d)\.$/, "Jugadas restantes este turno: $1.", "Lượt đi còn lại: $1."],
+  [/^Plays left: (\d)\.$/, "Jugadas restantes: $1.", "Lượt đi còn lại: $1."],
+  [/^Your turn\. Plays left: (\d)\.$/, "Tu turno. Jugadas restantes: $1.", "Đến lượt bạn. Lượt đi còn lại: $1."],
+  [/^Choose (\d) to discard, so you end with (\d)\.$/, "Elige $1 para descartar y quedarte con $2.", "Chọn $1 lá để bỏ, còn lại $2 lá."],
+  [/^Discard down to (\d)\.$/, "Descarta hasta tener $1.", "Bỏ bớt còn $1 lá."],
+  [/^You have (\d+) cards\.$/, "Tienes $1 cartas.", "Bạn có $1 lá."],
+  [/^Too many cards\.$/, "Demasiadas cartas.", "Quá nhiều bài."],
+  [/^Discard the chosen cards \((\d) of (\d)\)$/, "Descartar las cartas elegidas ($1 de $2)", "Bỏ các lá đã chọn ($1/$2)"],
+  [/^(\d) of (\d) chosen\.$/, "$1 de $2 elegidas.", "Đã chọn $1/$2."],
+  [/^Chosen so far: (.+)\.$/, "Elegido hasta ahora: $1.", "Đã chọn: $1."],
+  [/^(.+), chosen to discard$/, "$1, elegida para descartar", "$1, đã chọn để bỏ"],
+  [/^(.+), from your bank$/, "$1, de tu banco", "$1, từ ngân hàng của bạn"],
+  [/^Pay the chosen cards \((.+)\)$/, "Pagar con las cartas elegidas ($1)", "Trả bằng các lá đã chọn ($1)"],
+  [/^Pay automatically: (.+)$/, "Pagar automáticamente: $1", "Tự động trả: $1"],
+  [/^You owe (.+?)\.?$/, "Debes $1.", "Bạn nợ $1."],
+  [/^Waiting for (.+) to pay (.+)\.$/, "Esperando a que $1 pague $2.", "Đang chờ $1 trả $2."],
+  [/^Waiting for (.+) to answer\.$/, "Esperando la respuesta de $1.", "Đang chờ $1 trả lời."],
+  [/^Put in your bank as (.+)$/, "Poner en tu banco como $1", "Gửi vào ngân hàng với giá $1"],
+  [/^Play on your table as (.+)$/, "Jugar en tu mesa como $1", "Đặt lên bàn làm $1"],
+  [/^Play as (.+)$/, "Jugar como $1", "Đặt làm $1"],
+  [/^Play: (.+) pays you (.+)$/, "Jugar: $1 te paga $2", "Đánh: $1 trả bạn $2"],
+  [/^Take (.+)'s (.+), then pick what to give$/, "Tomar $2 de $1 y luego elegir qué dar", "Lấy $2 của $1, rồi chọn thứ để đưa"],
+  [/^Rent for (.+): you don't own any$/, "Alquiler por $1: no tienes ninguna", "Thuê cho $1: bạn không có lá nào"],
+  [/^Charge (.+?) (\d+ million) for (.+)$/, "Cobrar a $1 $2 por $3", "Thu của $1 $2 cho $3"],
+  [/^Trade (\d) for (\d)$/, "Cambiar $1 por $2", "Đổi $1 lấy $2"],
+  [/^Get (\d+)M$/, "Recibir $1 M", "Nhận $1 tr"],
+  [/^Games won: (.+)$/, "Partidas ganadas: $1", "Số ván thắng: $1"],
+  [/^Your hand: (\d+) cards$/, "Tu mano: $1 cartas", "Bài của bạn: $1 lá"],
+  [/^Cards: (.+)\.$/, "Cartas: $1.", "Lá: $1."],
+  [/^Bank win: first to bank this much wins$/, "Victoria por banco: gana quien ahorre esta cantidad", "Thắng bằng ngân hàng: ai gửi đủ số này trước sẽ thắng"],
+  [/^Bankruptcy: if you can't pay a debt in full, you lose \(not during your first (\d) turns\)$/, "Bancarrota: si no puedes pagar una deuda completa, pierdes (no en tus primeros $1 turnos)", "Phá sản: nếu không trả đủ nợ, bạn thua (trừ $1 lượt đầu)"],
   // shared shell
   [/^You're playing against (.+), the computer\.$/, "Juegas contra $1, la computadora.", "Bạn đang đấu với $1, là máy."],
   [/^(.+) joined your table!$/, "¡$1 se unió a tu mesa!", "$1 đã vào bàn của bạn!"],
@@ -671,8 +933,8 @@ const P = [
   [/^(.+) \(computer\)$/, "$1 (computadora)", "$1 (máy)"],
   [/^Done\. This device now uses code (.+)\.$/, "Listo. Este dispositivo ahora usa el código $1.", "Xong. Thiết bị này giờ dùng mã $1."],
 ];
-const WORD = { es: { set: "grupo", run: "escalera", "lowest to highest": "de menor a mayor", "highest to lowest": "de mayor a menor", "by suit": "por palo", You: "Tú", On: "Activada", Off: "Desactivada", stacking: "apilar", "draw wars": "guerras de robo", "stacking and draw wars": "apilar y guerras de robo", "The computer": "La computadora", "Your partner": "Tu compañero", one: "una", two: "dos", three: "tres", four: "cuatro", five: "cinco", six: "seis", seven: "siete", eight: "ocho" },
-  vi: { set: "bộ", run: "dây", "lowest to highest": "từ nhỏ đến lớn", "highest to lowest": "từ lớn đến nhỏ", "by suit": "theo chất", You: "Bạn", On: "Bật", Off: "Tắt", stacking: "đánh chồng", "draw wars": "chiến rút bài", "stacking and draw wars": "đánh chồng và chiến rút bài", "The computer": "Máy", "Your partner": "Bạn chơi", one: "một", two: "hai", three: "ba", four: "bốn", five: "năm", six: "sáu", seven: "bảy", eight: "tám" } };
+const WORD = { es: { ", full set": ", grupo completo", rent: "alquiler", debt: "deuda", "party charge": "la fiesta", house: "casa", hotel: "hotel", ", doubled": ", duplicado", ", doubled twice": ", duplicado dos veces", set: "grupo", run: "escalera", "lowest to highest": "de menor a mayor", "highest to lowest": "de mayor a menor", "by suit": "por palo", You: "Tú", On: "Activada", Off: "Desactivada", stacking: "apilar", "draw wars": "guerras de robo", "stacking and draw wars": "apilar y guerras de robo", "The computer": "La computadora", "Your partner": "Tu compañero", one: "una", two: "dos", three: "tres", four: "cuatro", five: "cinco", six: "seis", seven: "siete", eight: "ocho" },
+  vi: { ", full set": ", bộ đầy đủ", rent: "tiền thuê", debt: "nợ", "party charge": "tiền tiệc", house: "nhà", hotel: "khách sạn", ", doubled": ", nhân đôi", ", doubled twice": ", nhân đôi hai lần", set: "bộ", run: "dây", "lowest to highest": "từ nhỏ đến lớn", "highest to lowest": "từ lớn đến nhỏ", "by suit": "theo chất", You: "Bạn", On: "Bật", Off: "Tắt", stacking: "đánh chồng", "draw wars": "chiến rút bài", "stacking and draw wars": "đánh chồng và chiến rút bài", "The computer": "Máy", "Your partner": "Bạn chơi", one: "một", two: "hai", three: "ba", four: "bốn", five: "năm", six: "sáu", seven: "bảy", eight: "tám" } };
 
 
 // ---------- pieces inside sentences (lists of dice, prizes, standings) ----------
@@ -726,13 +988,47 @@ const PP_CARDS = [
   [/^(your|the computer's|their|.+'s) set of (three|four) (Aces|Jacks|Queens|Kings|\d+s)$/, (m) => { const r = m[3].replace(/s$/, ""); return lang === "es" ? (m[1] === "your" ? "tu grupo de " : "el grupo de ") + (m[2] === "three" ? "tres " : "cuatro ") + (PC.es.plural[r] || r) + (m[1] === "your" ? "" : " " + owner(m[1])) : "bộ " + (m[2] === "three" ? "ba" : "bốn") + " lá " + (PC.vi.plural[r] || r) + " " + owner(m[1]); }],
 ];
 
+// ---------- Deal Rush cards ----------
+const DR = {
+  es: { color: { Brown: "Marrón", "Light Blue": "Celeste", Pink: "Rosa", Orange: "Naranja", Red: "Roja", Yellow: "Amarilla", Green: "Verde", "Dark Blue": "Azul oscuro", Station: "Estación", Utility: "Servicio", "any color": "cualquier color", "Any color": "Cualquier color" },
+    act: { "Set Steal": "Robo de grupo", "No Way!": "¡Ni hablar!", Swipe: "Birlar", Swap: "Cambio", "Collect Debt": "Cobrar deuda", "Party Time": "Hora de fiesta", "Bonus Draw": "Robo extra", "Double Rent": "Alquiler doble", House: "Casa", Hotel: "Hotel" },
+    m: (n) => n + (n === "1" ? " millón" : " millones"), prop: (c) => "propiedad " + c, rent: (l) => "Alquiler: " + l, wild: (l) => "Propiedad comodín: " + l, or: " o " },
+  vi: { color: { Brown: "Nâu", "Light Blue": "Xanh nhạt", Pink: "Hồng", Orange: "Cam", Red: "Đỏ", Yellow: "Vàng", Green: "Xanh lá", "Dark Blue": "Xanh đậm", Station: "Nhà ga", Utility: "Tiện ích", "any color": "mọi màu", "Any color": "Mọi màu" },
+    act: { "Set Steal": "Cướp bộ", "No Way!": "Không đời nào!", Swipe: "Chôm", Swap: "Đổi chác", "Collect Debt": "Đòi nợ", "Party Time": "Tiệc tùng", "Bonus Draw": "Rút thêm", "Double Rent": "Thuê gấp đôi", House: "Nhà", Hotel: "Khách sạn" },
+    m: (n) => n + " triệu", prop: (c) => "đất " + c, rent: (l) => "Thuê: " + l, wild: (l) => "Đất đa năng: " + l, or: " hoặc " },
+};
+const DRC = "Brown|Light Blue|Pink|Orange|Red|Yellow|Green|Dark Blue|Station|Utility";
+const drc = (c) => DR[lang].color[c] || c;
+const drList = (l) => l.split(" or ").map(drc).join(DR[lang].or);
+const PP_DR = [
+  [/^(\d+) million$/, (m) => DR[lang].m(m[1])],
+  [/^(\d+)M$/, (m) => m[1] + (lang === "es" ? " M" : " tr")],
+  [new RegExp("^(" + DRC + ") property$"), (m) => DR[lang].prop(drc(m[1]))],
+  [new RegExp("^a (" + DRC + ") property$"), (m) => (lang === "es" ? "una " : "một ") + DR[lang].prop(drc(m[1]))],
+  [new RegExp("^Rent: ((?:" + DRC + ")(?: or (?:" + DRC + "))*|any color)$"), (m) => DR[lang].rent(drList(m[1]))],
+  [new RegExp("^Wild property: ((?:" + DRC + ")(?: or (?:" + DRC + "))*|any color)$"), (m) => DR[lang].wild(drList(m[1]))],
+  [new RegExp("^(" + DRC + "|any color|Any color)$"), (m) => drc(m[1])],
+  [/^Wild: (.+)$/, (m) => (lang === "es" ? "Comodín: " : "Đa năng: ") + m[1].split(" / ").map(drc).join(" / ")],
+  [/^a wild property as (.+)$/, (m) => (lang === "es" ? "una propiedad comodín como " : "một đất đa năng làm ") + drc(m[1])],
+  [/^(Set Steal|No Way!|Swipe|Swap|Collect Debt|Party Time|Bonus Draw|Double Rent|Hotel)$/, (m) => DR[lang].act[m[1]]],
+  [/^(.+) \((\d+) million\)$/, (m) => piece(m[1]) + " (" + DR[lang].m(m[2]) + ")"],
+  [/^the (.+) \(worth (.+)\)$/, (m) => (lang === "es" ? "la " : "") + piece(m[1]) + (lang === "es" ? " (vale " : " (trị giá ") + piece(m[2]) + ")"],
+  [/^the whole (.+) set$/, (m) => (lang === "es" ? "todo el grupo " : "cả bộ ") + drc(m[1])],
+  [/^your (.+)$/, (m) => lang === "es" ? "tu " + piece(m[1]) : piece(m[1]) + " của bạn"],
+  [/^their (.+)$/, (m) => lang === "es" ? "su " + piece(m[1]) : piece(m[1]) + " của họ"],
+  [/^(\w[\w ]*)'s (.+)$/, (m) => lang === "es" ? piece(m[2]) + " de " + m[1] : piece(m[2]) + " của " + m[1]],
+];
+
 const DICT = { es: ES, vi: VI };
 function piece(s) {
   if (s == null) return s;
+  const O = (OVERRIDE[GAME] || {})[lang];
+  if (O && O[s] !== undefined) return O[s];
   const D = DICT[lang];
   if (D[s] !== undefined) return D[s];
   const W = WORD[lang];
   if (W[s] !== undefined) return W[s];
+  if (GAME === "deal-rush") for (const [re, f] of PP_DR) { const m = s.match(re); if (m) return f(m); }
   for (const [re, f] of PP_CARDS) { const m = s.match(re); if (m) return f(m); }
   for (const [re, f] of PP) { const m = s.match(re); if (m) return f(m); }
   if (/; |, | and /.test(s)) {
@@ -744,12 +1040,14 @@ function piece(s) {
   return cards(s);
 }
 function sentence(s) {
+  const O = (OVERRIDE[GAME] || {})[lang];
+  if (O && O[s] !== undefined) return O[s];
   const D = DICT[lang];
   if (D[s] !== undefined) return D[s];
   const col = lang === "es" ? 1 : 2;
   for (const p of P) {
     const m = s.match(p[0]);
-    if (m) return p[col].replace(/\$(\d)/g, (_, i) => piece(m[i]));
+    if (m) return p[col].replace(/\$(\d)/g, (_, i) => (m[i] === undefined ? "" : piece(m[i])));
   }
   // no sentence pattern: try it as a phrase (lists of dice, "You and Sunny tied, nothing", ...)
   const end = (s.match(/[.!?]$/) || [""])[0], core = end ? s.slice(0, -1) : s;
@@ -802,6 +1100,12 @@ export function translatePage() {
   addPicker();
   if (lang === "en") return;
   document.title = tr(document.title);
+  if (GAME === "letter-flip" || GAME === "survey-showdown") {
+    const note = document.createElement("p");
+    note.setAttribute("data-no-tr", ""); note.style.cssText = "margin:0;padding:10px 14px;border-radius:12px;background:rgba(240,180,58,0.15);font-weight:700";
+    note.textContent = lang === "es" ? "Este juego es en inglés: las palabras y respuestas son en inglés." : "Trò chơi này bằng tiếng Anh: các từ và câu trả lời đều là tiếng Anh.";
+    const nav = document.querySelector("nav"); if (nav) nav.insertAdjacentElement("afterend", note);
+  }
   walk(document.body);
   new MutationObserver((list) => {
     for (const m of list) {
