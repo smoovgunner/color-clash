@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0a2a29">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="EvenPlay">
 <title>EvenPlay</title>
 <meta name="description" content="Free two-player card and dice games. No accounts, no downloads: play a friend with a code, find someone new, or practice against the computer.">
 <script>
@@ -55,7 +61,8 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
   <header>
     <h1><span class="even">Even</span>Play</h1>
     <p class="tag">Free card and dice games for two. Play a friend, find someone new, or take on the computer.</p>
-    <nav aria-label="EvenPlay" class="site-nav"><a href="/" aria-current="page">Home</a> <a href="/how-it-works/">How it works</a> <a href="/leaderboards/">Leaderboards</a> <a href="/about/">About</a></nav>  </header>
+    <nav aria-label="EvenPlay" class="site-nav"><a href="/" aria-current="page">Home</a> <a href="/how-it-works/">How it works</a> <a href="/leaderboards/">Leaderboards</a> <a href="/about/">About</a></nav>
+    <p id="install-row" hidden style="margin:14px 0 0"><button type="button" class="play" id="install-btn" style="border:0;cursor:pointer;font:inherit;font-weight:700">Install EvenPlay as an app</button></p>  </header>
 
   <section aria-labelledby="games-h">
     <h2 id="games-h">Pick a game</h2>
@@ -123,6 +130,16 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
   <footer>EvenPlay, made by smoovgunner with Claude.</footer>
 </main>
 <script>
+// Install as an app: browsers that support it (Chrome, Edge, Android) offer the button.
+let installEvent = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvent = e; document.getElementById("install-row").hidden = false; });
+document.getElementById("install-btn").addEventListener("click", async () => {
+  if (!installEvent) return;
+  installEvent.prompt();
+  try { await installEvent.userChoice; } catch (e) {}
+  installEvent = null; document.getElementById("install-row").hidden = true;
+});
+window.addEventListener("appinstalled", () => { document.getElementById("install-row").hidden = true; });
 // Show how many players are waiting at a public table for each game.
 async function waiting() {
   try {
@@ -136,6 +153,7 @@ async function waiting() {
 }
 waiting(); setInterval(waiting, 20000);
 </script>
-<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}</script>
+<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}
+try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js"); } catch (e) {}</script>
 </body>
 </html>

@@ -21,6 +21,9 @@ const WORDS = [
   "TIGER", "MANGO", "COMET", "LUCKY", "OCEAN", "PEACH", "ROCKET", "SUNNY", "MAPLE", "JAZZY",
   "PANDA", "RIVER", "STORM", "HONEY", "CANDY", "PIXEL", "ZEBRA", "LEMON", "CORAL", "BLAZE",
 ];
+// How many quick chat messages the pages offer (the words themselves live in each page).
+const EMOTES = 9;
+
 // Names for the computer player. The page always says it's the computer.
 const BOTS = ["Lucky Lou", "Dicey Dana", "Big Mike", "Ace", "Queenie", "Slick Rick", "Penny", "Domino", "Mo Money", "Skip", "Sunny", "Wild Card Willa", "Tex", "Professor Pip", "Rosie", "Captain Kev"];
 const IDLE_MS = 7 * 24 * 60 * 60 * 1000; // a room with no moves for a week is cleared
@@ -49,7 +52,21 @@ export function cleanName(raw) {
   const flat = name.toLowerCase().replace(/0/g, "o").replace(/[1!|]/g, "i").replace(/3/g, "e").replace(/4|@/g, "a").replace(/5|\$/g, "s").replace(/7/g, "t").replace(/[^a-z ]/g, "");
   const squashed = flat.replace(/ /g, "");
   if (BAD.some((w) => flat.includes(w) || squashed.includes(w.replace(/ /g, "")))) return "Player";
+  if (looksLikeContact(name)) return "Player";
   return name || "Player";
+}
+// Names can't carry contact details: phone numbers, emails, links or social handles.
+const CONTACT_WORDS = ["snap", "insta", "whatsapp", "telegram", "discord", "tiktok", "facebook", "gmail", "hotmail", "yahoo", "outlook", "email", "phone", "textme", "callme", "dmme", "addme", "msgme", "messageme", "hmu", "onlyfans", "twitter", "wechat", "skype", "zalo", "viber"];
+const NUM_WORDS = /\b(zero|oh|one|two|three|four|five|six|seven|eight|nine)\b/g;
+export function looksLikeContact(name) {
+  const low = name.toLowerCase();
+  if ((low.match(/[0-9]/g) || []).length >= 3) return true;                  // phone numbers, codes
+  if (/[@#]|https?:|www\.|\.(com|net|org|me|io|gg|co)\b/.test(low)) return true;  // emails, links, handles
+  if (/\b(ig|dm|fb|sc|wa|tg|pm|kik|signal|line id)\b/.test(low)) return true;    // short handles
+  const squashed = low.replace(/[^a-z]/g, "");
+  if (CONTACT_WORDS.some((w) => squashed.includes(w.replace(/ /g, "")))) return true;
+  if ((low.match(NUM_WORDS) || []).length >= 3) return true;                  // "five five five"
+  return false;
 }
 async function sha256(text) {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -147,6 +164,18 @@ class Room extends DurableObject {
       ws.send('{"type":"pong"}');
       // a public table still waiting for a second player: tell the lobby we're still here
       if (this.st && this.st.pub && att.seat >= 0 && this.waitingForPlayer()) this.lobby("touch");
+      return;
+    }
+
+    if (m.type === "emote") {
+      // quick chat: preset messages only, sent by number, so nothing typed ever reaches another player
+      const i = Number(m.i);
+      if (!this.st || att.seat < 0 || !Number.isInteger(i) || i < 0 || i >= EMOTES) return;
+      const now = Date.now();
+      if (att.lastEmote && now - att.lastEmote < 2500) return;
+      ws.serializeAttachment({ ...att, lastEmote: now });
+      const msg = JSON.stringify({ type: "emote", seat: att.seat, i });
+      for (const s of this.ctx.getWebSockets()) { try { s.send(msg); } catch (e) {} }
       return;
     }
 

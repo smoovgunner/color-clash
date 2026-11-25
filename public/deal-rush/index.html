@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0a2a29">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="EvenPlay">
 <title>Deal Rush</title>
 <meta name="description" content="A property-trading card game for two. Free, no account needed.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -351,6 +357,7 @@ button.dc.selected { transform: translateY(-12px); box-shadow: 0 0 0 4px var(--g
 </div>
 
 <script type="module">
+import { quickChat } from "/shared/quickchat.js";
 import { useSamples } from "/sounds/samples.js";
 import { CARDS, COLORS, ACTIONS, HAND_LIMIT, PLAYS, SETS_TO_WIN, cardName, applyAction, viewFor, cpuAction, newTable,
   isFull, setRent, rentFor, canBe, payValue, autoPay, fullColors, worth } from "./rules.js";
@@ -758,7 +765,7 @@ function connect() {
         const intro = "You're playing against " + m.view.names[1] + ", the computer. ", until = Date.now() + 3000, plain = say;
         say = (text) => { if (Date.now() < until) return plain(intro + text); say = plain; return plain(text); };
       }
-      view = m.view; render();
+      view = m.view; render(); qc.update();
       if (publicGame && before === 1 && view.present.filter(Boolean).length === 2 && view.you >= 0) {
         const them = view.names[1 - view.you] || "A player";
         say(them + " joined your table! " + (view.you === 0 ? "Start the game when you're ready." : "They'll start the game."));
@@ -766,6 +773,7 @@ function connect() {
       }
       if (autoDeal && view.status === "waiting" && view.present[0] && view.present[1] && view.you === 0) { const a = autoDeal; autoDeal = null; act(a); }
     }
+    else if (m.type === "emote") qc.receive(m);
     else if (m.type === "error") problem(m.message);
   };
   ws.onclose = () => {
@@ -798,6 +806,7 @@ function leaveGame() {
   history.replaceState(null, "", location.pathname);
   $("game").hidden = true; $("home").hidden = false; $("score").textContent = ""; $("home-msg").textContent = "";
   say("Left the game.");
+  qc.update();
 }
 // Practice games run on the game server, so wins against the computer count on the leaderboards.
 async function startPractice(m) {
@@ -1010,6 +1019,14 @@ function render() {
 
 // ---------- home ----------
 
+
+// Quick chat: preset messages only (see /shared/quickchat.js).
+const qc = quickChat({
+  send: (i) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "emote", i })); },
+  say: (text) => say(text), nameOf: (s) => nameOf(s), getView: () => view, isOnline: () => mode === "online" && !!ws,
+  ping: () => { const ac = audio(); if (ac) { const t = ac.currentTime + 0.02; tone(ac, t, 880, 0.12, "sine", 0.12); tone(ac, t + 0.1, 1320, 0.18, "sine", 0.12); } },
+});
+
 // Play someone new: join a player who's waiting for this game, or open a public table and wait for one.
 async function quickMatch() {
   store.set("cc-name", myName());
@@ -1039,6 +1056,7 @@ if (fromLink) {
   else $("home-msg").textContent = "You've been invited to game " + fromLink + ". Type your name, then choose Join game.";
 }
 </script>
-<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}</script>
+<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}
+try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js"); } catch (e) {}</script>
 </body>
 </html>

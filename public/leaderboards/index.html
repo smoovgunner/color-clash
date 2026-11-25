@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0a2a29">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="EvenPlay">
 <title>EvenPlay Leaderboards</title>
 <meta name="description" content="The top five players in every EvenPlay game: most games won against other players, and most won in a row.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -147,6 +153,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
   load();
 })();
 </script>
-<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}</script>
+<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}
+try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js"); } catch (e) {}</script>
 </body>
 </html>

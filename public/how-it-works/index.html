@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0a2a29">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="EvenPlay">
 <title>How EvenPlay works</title>
 <meta name="description" content="How to play on EvenPlay: game codes, finding someone new, practice games, sounds, and the leaderboards.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,6 +52,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
       <li><strong>Everyone plays.</strong> Real cards and dice on screen, and full screen reader support: every card, die and move is announced, and each part of the table has its own heading. Tested with NVDA and VoiceOver.</li>
       <li><strong>Sound effects</strong> for every move, with a Sound button at the top of each game to turn them off.</li>
       <li><strong>Phones and computers.</strong> iPhone, Android, Windows or Mac, in any modern browser.</li>
+      <li><strong>Install it like an app.</strong> On Android or Windows, open EvenPlay in Chrome or Edge and choose Install EvenPlay as an app on the home page (or Install app in the browser menu). On iPhone, open it in Safari, choose Share, then Add to Home Screen. It gets its own icon and opens full screen.</li>
       <li>Each game has its own rules under <strong>How to play</strong>, at the bottom of the game's page.</li>
     </ul>
   </section>
@@ -63,6 +70,7 @@ footer { color: var(--ink-soft); font-size: 15px; text-align: center; }
   <p><a class="play" href="/">Pick a game</a></p>
   <footer>EvenPlay, made by smoovgunner with Claude.</footer>
 </main>
-<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}</script>
+<script>try { navigator.sendBeacon("/api/hit", location.pathname); } catch (e) {}
+try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js"); } catch (e) {}</script>
 </body>
 </html>
